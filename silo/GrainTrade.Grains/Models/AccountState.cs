@@ -1,4 +1,4 @@
-namespace GrainTrade.Grains;
+namespace GrainTrade.Grains.Models;
 
 // Durable state persisted via IPersistentState.
 [GenerateSerializer]

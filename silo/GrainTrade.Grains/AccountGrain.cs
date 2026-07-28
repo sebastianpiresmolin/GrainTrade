@@ -1,4 +1,5 @@
 using GrainTrade.Abstractions;
+using GrainTrade.Grains.Models;
 using Orleans.Runtime;
 
 namespace GrainTrade.Grains;
