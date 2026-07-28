@@ -1,0 +1,30 @@
+# --- .NET ---
+bin/
+obj/
+*.user
+.vs/
+
+# --- Node / SvelteKit ---
+# (web/ also has its own .gitignore from the scaffold; this is a belt-and-suspenders copy)
+node_modules/
+web/.svelte-kit/
+web/build/
+web/.vite/
+
+# --- Secrets / local config ---
+# Safety net for .NET hosts / root-level env files (connection strings arrive with Postgres).
+.env
+.env.*
+!.env.example
+
+# --- Local dev notes ---
+CLAUDE.md
+
+# --- Test output ---
+[Tt]est[Rr]esults/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+*.DotSettings.user
