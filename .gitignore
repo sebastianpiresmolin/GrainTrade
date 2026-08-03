@@ -28,3 +28,6 @@ CLAUDE.md
 Thumbs.db
 .idea/
 *.DotSettings.user
+
+# --- local run script output ---
+.logs/

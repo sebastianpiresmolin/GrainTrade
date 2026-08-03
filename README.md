@@ -45,7 +45,17 @@ the project is built to exercise.
 
 ## Running locally
 
-Three processes, started in this order (the client needs the cluster up first):
+All three processes, in order, with one command:
+
+```powershell
+.\run.ps1              # add -NoWeb for backend only
+```
+
+It waits for the silo to report ready before starting the API host (an
+Orleans client can't connect to a cluster that isn't up yet), writes per-process
+logs to `.logs/`, and stops everything on Ctrl+C.
+
+To run them by hand instead — the order matters:
 
 ```sh
 # 1. Silo — hosts the grains
@@ -58,7 +68,7 @@ dotnet run --project api-host --urls http://localhost:5080
 cd web && npm install && npm run dev
 ```
 
-Then open <http://localhost:5173/account>.
+Then open <http://localhost:5173/market>.
 
 ## Status
 
