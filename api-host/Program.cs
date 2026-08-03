@@ -21,5 +21,6 @@ var app = builder.Build();
 
 app.UseCors(DevCors);
 app.MapAccountEndpoints();
+app.MapTickerEndpoints();
 
 app.Run();
