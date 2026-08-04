@@ -24,6 +24,16 @@ public static class TickerHandlers
         return Results.Ok(await client.GetGrain<ITickerGrain>(symbol).GetQuote());
     }
 
+    public static async Task<IResult> GetTrades(string symbol, IClusterClient client)
+    {
+        if (!MarketSymbols.IsKnown(symbol))
+        {
+            return Results.NotFound();
+        }
+
+        return Results.Ok(await client.GetGrain<IOrderBookGrain>(symbol).GetRecentTrades());
+    }
+
     public static async Task<IResult> GetHistory(string symbol, IClusterClient client)
     {
         if (!MarketSymbols.IsKnown(symbol))

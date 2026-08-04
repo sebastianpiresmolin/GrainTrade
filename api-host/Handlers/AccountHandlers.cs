@@ -25,8 +25,27 @@ public static class AccountHandlers
         return Invoke(() => account.Withdraw(req.Amount));
     }
 
+    public static Task<IResult> PlaceOrder(Guid id, OrderRequest req, IClusterClient client)
+    {
+        if (!MarketSymbols.IsKnown(req.Symbol))
+        {
+            return Task.FromResult(Results.Problem(
+                detail: $"Unknown symbol \"{req.Symbol}\".",
+                statusCode: StatusCodes.Status400BadRequest));
+        }
+
+        var account = client.GetGrain<IAccountGrain>(id);
+        return Invoke(() => account.PlaceOrder(req.Symbol, req.Side, req.Quantity));
+    }
+
+    public static async Task<IResult> GetTrades(Guid id, IClusterClient client)
+    {
+        var account = client.GetGrain<IAccountGrain>(id);
+        return Results.Ok(await account.GetTrades());
+    }
+
     // Map the grain's domain exceptions to 400s.
-    private static async Task<IResult> Invoke(Func<Task<AccountSummary>> op)
+    private static async Task<IResult> Invoke<T>(Func<Task<T>> op)
     {
         try
         {

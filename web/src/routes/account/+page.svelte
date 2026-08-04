@@ -17,6 +17,18 @@
 		<span class="value">{money(data.account.cashBalance)}</span>
 	</div>
 
+	{#if data.account.holdings.length}
+		<ul class="holdings">
+			{#each data.account.holdings as holding (holding.symbol)}
+				<li>
+					<a href="/market/{holding.symbol}">{holding.symbol}</a>
+					<span>{holding.quantity}</span>
+					<span class="cost">avg {money(holding.averageCost)}</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
 	{#if form?.error}
 		<p class="error" role="alert">{form.error}</p>
 	{/if}
@@ -74,6 +86,29 @@
 		font-size: 2rem;
 		font-weight: 700;
 		color: #1a7f37;
+	}
+	.holdings {
+		list-style: none;
+		padding: 0;
+		margin: 0 0 1.5rem;
+		font-size: 0.9rem;
+	}
+	.holdings li {
+		display: grid;
+		grid-template-columns: 5rem 3rem 1fr;
+		gap: 0.75rem;
+		padding: 0.5rem 0;
+		border-bottom: 1px solid #f0f0f0;
+		font-variant-numeric: tabular-nums;
+	}
+	.holdings a {
+		color: #1a7f37;
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.cost {
+		color: #888;
+		text-align: right;
 	}
 	.forms {
 		display: flex;

@@ -10,4 +10,7 @@ public sealed record AccountSummary
 
     [Id(1)]
     public required decimal CashBalance { get; init; }
+
+    [Id(2)]
+    public IReadOnlyList<Holding> Holdings { get; init; } = [];
 }

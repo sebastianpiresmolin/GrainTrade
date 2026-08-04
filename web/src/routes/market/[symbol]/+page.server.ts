@@ -1,22 +1,61 @@
-import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
-import type { PricePoint, TickerQuote } from '$lib/types';
-import { API_BASE } from '$lib/server/api';
+import { error, fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import type { AccountSummary, OrderSide, PricePoint, TickerQuote, Trade } from '$lib/types';
+import { ACCOUNT_ID, API_BASE } from '$lib/server/api';
 
 export const load: PageServerLoad = async ({ fetch, params }) => {
-	const [quoteRes, historyRes] = await Promise.all([
+	const [quoteRes, historyRes, tradesRes, accountRes] = await Promise.all([
 		fetch(`${API_BASE}/market/${params.symbol}`),
-		fetch(`${API_BASE}/market/${params.symbol}/history`)
+		fetch(`${API_BASE}/market/${params.symbol}/history`),
+		fetch(`${API_BASE}/market/${params.symbol}/trades`),
+		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`)
 	]);
 
 	if (quoteRes.status === 404) {
 		error(404, `Unknown symbol "${params.symbol}".`);
 	}
-	if (!quoteRes.ok || !historyRes.ok) {
+	if (!quoteRes.ok || !historyRes.ok || !tradesRes.ok || !accountRes.ok) {
 		error(502, 'Failed to load ticker.');
 	}
 
 	const quote: TickerQuote = await quoteRes.json();
 	const history: PricePoint[] = await historyRes.json();
-	return { quote, history };
+	const trades: Trade[] = await tradesRes.json();
+	const account: AccountSummary = await accountRes.json();
+	return { quote, history, trades, account };
+};
+
+// Client-side checks are a courtesy; the grain owns funds and share counts.
+async function order(
+	fetch: typeof globalThis.fetch,
+	symbol: string,
+	side: OrderSide,
+	formData: FormData
+) {
+	const raw = formData.get('quantity');
+	const quantity = Number(raw);
+	if (raw === null || raw === '' || !Number.isInteger(quantity) || quantity <= 0) {
+		return fail(400, { error: 'Enter a whole number of shares greater than zero.' });
+	}
+
+	const res = await fetch(`${API_BASE}/accounts/${ACCOUNT_ID}/orders`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ symbol, side, quantity })
+	});
+
+	if (!res.ok) {
+		const problem = await res.json().catch(() => null);
+		return fail(res.status, { error: problem?.detail ?? `Order failed (${res.status}).` });
+	}
+
+	const result: { trade: Trade; account: AccountSummary } = await res.json();
+	return { order: result };
+}
+
+export const actions: Actions = {
+	buy: async ({ request, fetch, params }) =>
+		order(fetch, params.symbol, 'Buy', await request.formData()),
+	sell: async ({ request, fetch, params }) =>
+		order(fetch, params.symbol, 'Sell', await request.formData())
 };

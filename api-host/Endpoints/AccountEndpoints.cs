@@ -11,6 +11,8 @@ public static class AccountEndpoints
         accounts.MapGet("/{id:guid}", AccountHandlers.GetSummary);
         accounts.MapPost("/{id:guid}/deposit", AccountHandlers.Deposit);
         accounts.MapPost("/{id:guid}/withdraw", AccountHandlers.Withdraw);
+        accounts.MapPost("/{id:guid}/orders", AccountHandlers.PlaceOrder);
+        accounts.MapGet("/{id:guid}/trades", AccountHandlers.GetTrades);
 
         return app;
     }

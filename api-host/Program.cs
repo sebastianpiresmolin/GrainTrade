@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using GrainTrade.Abstractions;
 using GrainTrade.ApiHost.Endpoints;
 using GrainTrade.ApiHost.Streaming;
@@ -11,6 +12,11 @@ builder.UseOrleansClient(client =>
     // Must match the provider name the silo registers.
     client.AddMemoryStreams(StreamConstants.Provider);
 });
+
+// Enums cross the wire as names ("Buy"), not ordinals — the TypeScript DTOs
+// mirror the C# names, and a reordered enum shouldn't silently change meaning.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddSingleton<MarketFeed>();
 builder.Services.AddHostedService<MarketFeedSubscriber>();

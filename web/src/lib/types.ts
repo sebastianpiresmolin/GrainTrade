@@ -1,8 +1,28 @@
 // DTOs shared with the backend — mirror the C# records in GrainTrade.Abstractions.
 
+export type OrderSide = 'Buy' | 'Sell';
+
+export interface Holding {
+	symbol: string;
+	quantity: number;
+	averageCost: number;
+}
+
 export interface AccountSummary {
 	accountId: string;
 	cashBalance: number;
+	holdings: Holding[];
+}
+
+export interface Trade {
+	tradeId: string;
+	accountId: string;
+	symbol: string;
+	side: OrderSide;
+	quantity: number;
+	price: number;
+	executedAt: string;
+	notional: number;
 }
 
 export interface TickerQuote {

@@ -15,6 +15,7 @@ builder.UseOrleans(silo =>
     // provider (Postgres) later is a change here only — the grain doesn't move.
     silo.AddMemoryGrainStorage("accounts");
     silo.AddMemoryGrainStorage("tickers");
+    silo.AddMemoryGrainStorage("orderbooks");
 
     // In-memory streams: no external broker, lost on restart. Fine for price
     // ticks, which are worthless a second later anyway.

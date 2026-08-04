@@ -1,9 +1,14 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
-	import type { PricePoint } from '$lib/types';
+	import type { AccountSummary, PricePoint } from '$lib/types';
 	import { market } from '$lib/market.svelte';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
+
+	// The action returns the settled account; fall back to the loaded one.
+	const account = $derived<AccountSummary>(form?.order?.account ?? data.account);
+	const position = $derived(account.holdings.find((h) => h.symbol === data.quote.symbol));
 
 	$effect(() => {
 		market.seed([data.quote]);
@@ -67,6 +72,48 @@
 	{/if}
 
 	<p class="asof">As of {new Date(quote.asOf).toLocaleTimeString()}</p>
+
+	<div class="trade">
+		<div class="wallet">
+			<span>Cash <strong>{money(account.cashBalance)}</strong></span>
+			{#if position}
+				<span>
+					Position <strong>{position.quantity}</strong>
+					<small>avg {money(position.averageCost)}</small>
+				</span>
+			{/if}
+		</div>
+
+		{#if form?.error}
+			<p class="error" role="alert">{form.error}</p>
+		{:else if form?.order}
+			<p class="filled" role="status">
+				{form.order.trade.side === 'Buy' ? 'Bought' : 'Sold'}
+				{form.order.trade.quantity} at {money(form.order.trade.price)}
+			</p>
+		{/if}
+
+		<form method="POST" use:enhance>
+			<input name="quantity" type="number" min="1" step="1" value="1" aria-label="Quantity" />
+			<button type="submit" formaction="?/buy" class="buy">Buy</button>
+			<button type="submit" formaction="?/sell" class="sell" disabled={!position}>Sell</button>
+		</form>
+	</div>
+
+	{#if data.trades.length}
+		<h2>Recent trades</h2>
+		<ul class="trades">
+			{#each data.trades.slice(0, 8) as trade (trade.tradeId)}
+				<li>
+					<span class:buy-side={trade.side === 'Buy'} class:sell-side={trade.side === 'Sell'}>
+						{trade.side}
+					</span>
+					<span>{trade.quantity} @ {money(trade.price)}</span>
+					<time>{new Date(trade.executedAt).toLocaleTimeString()}</time>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 </section>
 
 <style>
@@ -107,6 +154,98 @@
 	.empty,
 	.asof {
 		font-size: 0.8rem;
+		color: #888;
+	}
+	.trade {
+		margin-top: 1.5rem;
+		padding: 1rem;
+		border: 1px solid #e2e2e2;
+		border-radius: 0.75rem;
+	}
+	.wallet {
+		display: flex;
+		gap: 1.5rem;
+		font-size: 0.85rem;
+		color: #555;
+		margin-bottom: 0.75rem;
+	}
+	.wallet small {
+		color: #888;
+	}
+	form {
+		display: flex;
+		gap: 0.5rem;
+	}
+	input {
+		flex: 1;
+		padding: 0.5rem;
+		border: 1px solid #ccc;
+		border-radius: 0.4rem;
+		font-size: 1rem;
+	}
+	button {
+		padding: 0.5rem 1.25rem;
+		border: 0;
+		border-radius: 0.4rem;
+		color: white;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	button:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+	.buy {
+		background: #1a7f37;
+	}
+	.sell {
+		background: #b42318;
+	}
+	.error,
+	.filled {
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.4rem;
+		font-size: 0.85rem;
+		margin: 0 0 0.75rem;
+	}
+	.error {
+		background: #ffeaea;
+		color: #b42318;
+	}
+	.filled {
+		background: #e8f5ec;
+		color: #1a7f37;
+	}
+	h2 {
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: #888;
+		margin: 1.5rem 0 0.5rem;
+	}
+	.trades {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		font-size: 0.85rem;
+	}
+	.trades li {
+		display: grid;
+		grid-template-columns: 3rem 1fr auto;
+		gap: 0.75rem;
+		padding: 0.4rem 0;
+		border-bottom: 1px solid #f0f0f0;
+		font-variant-numeric: tabular-nums;
+	}
+	.buy-side {
+		color: #1a7f37;
+		font-weight: 600;
+	}
+	.sell-side {
+		color: #b42318;
+		font-weight: 600;
+	}
+	time {
 		color: #888;
 	}
 </style>

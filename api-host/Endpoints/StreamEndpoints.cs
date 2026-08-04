@@ -1,12 +1,14 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using GrainTrade.ApiHost.Streaming;
 
 namespace GrainTrade.ApiHost.Endpoints;
 
 public static class StreamEndpoints
 {
+    // Matches the host-wide options so enums serialise the same way here.
     private static readonly JsonSerializerOptions Json =
-        new(JsonSerializerDefaults.Web);
+        new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     public static IEndpointRouteBuilder MapStreamEndpoints(this IEndpointRouteBuilder app)
     {

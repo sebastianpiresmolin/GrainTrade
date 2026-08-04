@@ -25,6 +25,7 @@ file sealed class TestSiloConfigurator : ISiloConfigurator
     {
         silo.AddMemoryGrainStorage("accounts");
         silo.AddMemoryGrainStorage("tickers");
+        silo.AddMemoryGrainStorage("orderbooks");
         silo.AddMemoryStreams(StreamConstants.Provider);
         silo.AddMemoryGrainStorage("PubSubStore");
 
