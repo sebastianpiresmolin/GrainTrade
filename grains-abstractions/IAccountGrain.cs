@@ -16,6 +16,19 @@ public interface IAccountGrain : IGrainWithGuidKey
     // caller — throws InvalidOperationException if either is short.
     Task<OrderResult> PlaceOrder(string symbol, OrderSide side, int quantity);
 
+    // Reserves cash (buy) or shares (sell) and rests the order on the book.
+    // Reserved funds leave the spendable balance but stay on the account until
+    // the order fills, is cancelled, or expires.
+    Task<OrderResult> PlaceLimitOrder(string symbol, OrderSide side, int quantity, decimal limitPrice);
+
+    Task<bool> CancelLimitOrder(string symbol, Guid orderId);
+
+    // Pulls fills from the books this account has orders on and settles them.
+    // Called before reading state, so a summary is never stale.
+    Task<AccountSummary> Settle();
+
     // Most recent first.
     Task<IReadOnlyList<Trade>> GetTrades();
+
+    Task<IReadOnlyList<RestingOrder>> GetOpenOrders();
 }

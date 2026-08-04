@@ -43,12 +43,21 @@ builder.UseOrleans(silo =>
             options.Invariant = "Npgsql";
             options.ConnectionString = postgres;
         });
+
+        // Order expiry must fire even if nothing else wakes the book, and
+        // survive a restart — so reminders, persisted alongside the state.
+        silo.UseAdoNetReminderService(options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = postgres;
+        });
     }
     else
     {
         silo.UseLocalhostClustering();
         silo.AddMemoryGrainStorage("accounts");
         silo.AddMemoryGrainStorage("orderbooks");
+        silo.UseInMemoryReminderService();
     }
 
     // Prices stay in memory whichever mode we're in: a simulated price is

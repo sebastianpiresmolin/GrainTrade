@@ -12,6 +12,7 @@ public static class TickerEndpoints
         market.MapGet("/{symbol}", TickerHandlers.GetQuote);
         market.MapGet("/{symbol}/history", TickerHandlers.GetHistory);
         market.MapGet("/{symbol}/trades", TickerHandlers.GetTrades);
+        market.MapGet("/{symbol}/depth", TickerHandlers.GetDepth);
 
         return app;
     }

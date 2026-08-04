@@ -13,4 +13,10 @@ public sealed record AccountSummary
 
     [Id(2)]
     public IReadOnlyList<Holding> Holdings { get; init; } = [];
+
+    // Cash committed to resting buy orders. Still on the account, not spendable.
+    [Id(3)]
+    public decimal ReservedCash { get; init; }
+
+    public decimal AvailableCash => CashBalance - ReservedCash;
 }

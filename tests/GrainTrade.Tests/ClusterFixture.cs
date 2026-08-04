@@ -28,6 +28,7 @@ file sealed class TestSiloConfigurator : ISiloConfigurator
         silo.AddMemoryGrainStorage("orderbooks");
         silo.AddMemoryStreams(StreamConstants.Provider);
         silo.AddMemoryGrainStorage("PubSubStore");
+        silo.UseInMemoryReminderService();
 
         var clock = TestClock.Current;
         silo.ConfigureServices(services =>

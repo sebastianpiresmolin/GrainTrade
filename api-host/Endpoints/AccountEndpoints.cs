@@ -13,6 +13,9 @@ public static class AccountEndpoints
         accounts.MapPost("/{id:guid}/withdraw", AccountHandlers.Withdraw);
         accounts.MapPost("/{id:guid}/orders", AccountHandlers.PlaceOrder);
         accounts.MapGet("/{id:guid}/trades", AccountHandlers.GetTrades);
+        accounts.MapPost("/{id:guid}/limit-orders", AccountHandlers.PlaceLimitOrder);
+        accounts.MapGet("/{id:guid}/orders", AccountHandlers.GetOpenOrders);
+        accounts.MapDelete("/{id:guid}/orders/{symbol}/{orderId:guid}", AccountHandlers.CancelLimitOrder);
 
         return app;
     }
