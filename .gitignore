@@ -31,3 +31,5 @@ Thumbs.db
 
 # --- local run script output ---
 .logs/
+/.claude
+
