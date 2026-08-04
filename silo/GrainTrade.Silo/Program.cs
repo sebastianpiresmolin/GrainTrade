@@ -1,3 +1,4 @@
+using GrainTrade.Abstractions;
 using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -14,6 +15,12 @@ builder.UseOrleans(silo =>
     // provider (Postgres) later is a change here only — the grain doesn't move.
     silo.AddMemoryGrainStorage("accounts");
     silo.AddMemoryGrainStorage("tickers");
+
+    // In-memory streams: no external broker, lost on restart. Fine for price
+    // ticks, which are worthless a second later anyway.
+    silo.AddMemoryStreams(StreamConstants.Provider);
+    // Backing store the memory stream provider needs for its queue metadata.
+    silo.AddMemoryGrainStorage("PubSubStore");
 });
 
 var host = builder.Build();

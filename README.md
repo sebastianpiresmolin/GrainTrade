@@ -76,7 +76,7 @@ Built as thin vertical slices, each touching both stacks.
 
 - [x] **Slice 1** — `AccountGrain` deposit/withdraw → REST → Svelte account page
 - [x] **Slice 2** — `TickerGrain` with a timer-driven random-walk price, polled by `/market`
-- [ ] **Slice 3** — push price updates live (Orleans Streams + SignalR/SSE)
+- [x] **Slice 3** — push price updates live (Orleans Streams → SSE)
 - [ ] **Slice 4** — `OrderBookGrain` with market-order matching
 - [ ] **Slice 5** — durable persistence (swap memory storage for Postgres)
 

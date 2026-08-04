@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Orleans.Client" Version="10.2.2" />
+    <PackageReference Include="Microsoft.Orleans.Streaming" Version="10.2.2" />
   </ItemGroup>
 
   <PropertyGroup>

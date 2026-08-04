@@ -1,14 +1,31 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
+	import type { PricePoint } from '$lib/types';
+	import { market } from '$lib/market.svelte';
 
 	let { data }: PageProps = $props();
+
+	$effect(() => {
+		market.seed([data.quote]);
+	});
+	$effect(() => market.connect());
+
+	// Live quote when the stream has one, SSR value until then.
+	const quote = $derived(market.quotes[data.quote.symbol] ?? data.quote);
+
+	// Extend the loaded history with ticks that arrive while we're on the page.
+	let live = $state<PricePoint[]>([]);
+	$effect(() => {
+		const q = market.quotes[data.quote.symbol];
+		if (q) live = [...live, { price: q.price, asOf: q.asOf }].slice(-120);
+	});
 
 	const money = (n: number) =>
 		new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 
 	// Sparkline path, recomputed whenever history changes.
 	const path = $derived.by(() => {
-		const points = data.history;
+		const points = [...data.history, ...live];
 		if (points.length < 2) return '';
 
 		const prices = points.map((p) => p.price);
@@ -25,19 +42,19 @@
 			.join(' ');
 	});
 
-	const rising = $derived(data.quote.change >= 0);
+	const rising = $derived(quote.change >= 0);
 </script>
 
 <section class="ticker">
 	<a class="back" href="/market">← Market</a>
 
-	<h1>{data.quote.symbol}</h1>
+	<h1>{quote.symbol}</h1>
 
 	<div class="price" class:up={rising} class:down={!rising}>
-		{money(data.quote.price)}
+		{money(quote.price)}
 		<span class="change">
 			{rising ? '▲' : '▼'}
-			{money(Math.abs(data.quote.change))}
+			{money(Math.abs(quote.change))}
 		</span>
 	</div>
 
@@ -49,7 +66,7 @@
 		<p class="empty">Not enough history yet.</p>
 	{/if}
 
-	<p class="asof">As of {new Date(data.quote.asOf).toLocaleTimeString()}</p>
+	<p class="asof">As of {new Date(quote.asOf).toLocaleTimeString()}</p>
 </section>
 
 <style>

@@ -1,44 +1,28 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import type { TickerQuote } from '$lib/types';
+	import { market } from '$lib/market.svelte';
 
 	let { data }: PageProps = $props();
 
-	// Polled prices, if any have arrived. Falls back to the server-loaded quotes
-	// so a client-side navigation re-renders fresh data rather than a snapshot.
-	let polled = $state<TickerQuote[] | null>(null);
-	let failed = $state(false);
+	$effect(() => {
+		market.seed(data.quotes);
+	});
 
-	const quotes = $derived(polled ?? data.quotes);
+	// Preserve the server's ordering; the store is keyed by symbol.
+	const quotes = $derived(data.quotes.map((q) => market.quotes[q.symbol] ?? q));
 
 	const money = (n: number) =>
 		new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 
-	// Polling — Slice 3 swaps this for a push stream. Note what it costs: a
-	// fixed interval regardless of whether anything changed, and every client
-	// paying for its own round trip.
-	$effect(() => {
-		const id = setInterval(async () => {
-			try {
-				const res = await fetch('/api/market');
-				if (!res.ok) throw new Error();
-				polled = await res.json();
-				failed = false;
-			} catch {
-				failed = true;
-			}
-		}, 2000);
-
-		return () => clearInterval(id);
-	});
+	$effect(() => market.connect());
 </script>
 
 <section class="market">
 	<header>
 		<h1>Market</h1>
-		{#if failed}
-			<span class="stale">connection lost — showing last known prices</span>
-		{/if}
+		<span class="status" class:live={market.connected}>
+			{market.connected ? 'live' : 'connecting…'}
+		</span>
 	</header>
 
 	<table>
@@ -79,9 +63,14 @@
 	h1 {
 		margin: 0;
 	}
-	.stale {
-		font-size: 0.8rem;
+	.status {
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 		color: #b42318;
+	}
+	.status.live {
+		color: #1a7f37;
 	}
 	table {
 		width: 100%;

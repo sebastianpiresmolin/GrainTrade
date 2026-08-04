@@ -1,6 +1,7 @@
 using GrainTrade.Abstractions;
 using GrainTrade.Grains.Models;
 using Orleans.Runtime;
+using Orleans.Streams;
 
 namespace GrainTrade.Grains;
 
@@ -18,6 +19,7 @@ public sealed class TickerGrain : Grain, ITickerGrain
     private readonly TimeProvider _time;
     private readonly Random _random;
     private int _ticksSinceWrite;
+    private IAsyncStream<TickerQuote> _quotes = null!;
 
     public TickerGrain(
         [PersistentState("ticker", "tickers")] IPersistentState<TickerState> state,
@@ -31,6 +33,10 @@ public sealed class TickerGrain : Grain, ITickerGrain
 
     public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
+        var symbol = this.GetPrimaryKeyString();
+        _quotes = this.GetStreamProvider(StreamConstants.Provider)
+            .GetStream<TickerQuote>(StreamConstants.TickerNamespace, symbol);
+
         if (!_state.State.Seeded)
         {
             var price = PriceWalk.SeedPrice(this.GetPrimaryKeyString());
@@ -67,6 +73,10 @@ public sealed class TickerGrain : Grain, ITickerGrain
             _ticksSinceWrite = 0;
             await _state.WriteStateAsync();
         }
+
+        // Side effect of the price change, not the change itself — the state
+        // above is already correct whether or not this succeeds.
+        await _quotes.OnNextAsync(ToQuote());
     }
 
     public Task<TickerQuote> GetQuote() => Task.FromResult(ToQuote());

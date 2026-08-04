@@ -3,7 +3,7 @@ using GrainTrade.Abstractions;
 namespace GrainTrade.Tests;
 
 [Collection(ClusterCollection.Name)]
-public sealed class TickerGrainTests(ClusterFixture fixture)
+public sealed class TickerGrainTests(GrainClusterFixture fixture)
 {
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(2);
 

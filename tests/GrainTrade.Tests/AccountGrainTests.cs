@@ -3,7 +3,7 @@ using GrainTrade.Abstractions;
 namespace GrainTrade.Tests;
 
 [Collection(ClusterCollection.Name)]
-public sealed class AccountGrainTests(ClusterFixture fixture)
+public sealed class AccountGrainTests(GrainClusterFixture fixture)
 {
     // A fresh key per test means a fresh activation with zeroed state — no
     // teardown needed, since grains are addressed rather than created.
