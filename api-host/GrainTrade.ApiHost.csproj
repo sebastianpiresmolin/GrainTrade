@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\grains-abstractions\GrainTrade.Abstractions.csproj" />
@@ -6,13 +6,16 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Orleans.Client" Version="10.2.2" />
+    <PackageReference Include="Microsoft.Orleans.Clustering.AdoNet" Version="10.2.2" />
     <PackageReference Include="Microsoft.Orleans.Streaming" Version="10.2.2" />
+    <PackageReference Include="Npgsql" Version="9.0.3" />
   </ItemGroup>
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>b12120c0-1de5-495e-a9fc-385f75769489</UserSecretsId>
   </PropertyGroup>
 
 </Project>

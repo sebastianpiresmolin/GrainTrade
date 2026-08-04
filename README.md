@@ -42,6 +42,49 @@ the project is built to exercise.
 
 - **.NET SDK 9**
 - **Node.js ≥ 20.19** (Vite 8 requirement)
+- **PostgreSQL** — optional; without it the stack runs fully in memory
+
+## Durable storage (optional)
+
+With no connection string configured, the silo uses localhost clustering and
+memory storage, and everything works — state just doesn't survive a restart.
+
+To go durable, create the database and apply Orleans' schema:
+
+```powershell
+$psql = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
+& $psql -U postgres -h localhost -c "CREATE DATABASE graintrade;"
+Get-ChildItem db\orleans\*.sql | Sort-Object Name | ForEach-Object {
+    & $psql -U postgres -h localhost -d graintrade -v ON_ERROR_STOP=1 -f $_.FullName
+}
+```
+
+Then point both hosts at it. The connection string holds a password, so it
+lives in user-secrets rather than `appsettings.json`, which is committed:
+
+```powershell
+$cs = "Host=localhost;Port=5432;Database=graintrade;Username=postgres;Password=YOURS"
+dotnet user-secrets set "ConnectionStrings:Orleans" $cs --project silo/GrainTrade.Silo
+dotnet user-secrets set "ConnectionStrings:Orleans" $cs --project api-host
+```
+
+Both hosts must agree: they find each other through the same membership table.
+
+Every setting, its shape, and a deploy checklist: [CONFIGURATION.md](CONFIGURATION.md).
+
+What goes where, and why:
+
+| Provider | Store | Rationale |
+| --- | --- | --- |
+| `accounts` | Postgres | Money — a restart must not lose it |
+| `orderbooks` | Postgres | Executed trades are a permanent record |
+| `tickers` | Memory | A simulated price is meaningless after a restart; it reseeds deterministically per symbol |
+| clustering | Postgres | Real membership table, so a second silo could join |
+| streams / `PubSubStore` | Memory | Price ticks are worthless a second later |
+
+`db/orleans/04-*.sql` is ours, not Orleans': the 10.2.2 runtime requires a
+`CleanupDefunctSiloEntriesKey` query that none of the schema scripts published
+at the `v10.2.2` tag define, so the silo won't start without it.
 
 ## Running locally
 
@@ -78,7 +121,7 @@ Built as thin vertical slices, each touching both stacks.
 - [x] **Slice 2** — `TickerGrain` with a timer-driven random-walk price, polled by `/market`
 - [x] **Slice 3** — push price updates live (Orleans Streams → SSE)
 - [x] **Slice 4** — market orders: `AccountGrain` settles cash + holdings, `OrderBookGrain` records fills
-- [ ] **Slice 5** — durable persistence (swap memory storage for Postgres)
+- [x] **Slice 5** — durable persistence: accounts, order books, and clustering on Postgres
 
 ## License
 
