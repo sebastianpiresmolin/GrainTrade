@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
 	import type { AccountSummary, PricePoint } from '$lib/types';
@@ -27,7 +28,14 @@
 	let live = $state<PricePoint[]>([]);
 	$effect(() => {
 		const q = market.quotes[data.quote.symbol];
-		if (q) live = [...live, { price: q.price, asOf: q.asOf }].slice(-120);
+		if (!q) return;
+		// Read/write `live` untracked: depending on it here would make the effect
+		// retrigger itself (effect_update_depth_exceeded). It should fire only when
+		// a new quote arrives, and append each tick once.
+		untrack(() => {
+			if (live.at(-1)?.asOf === q.asOf) return;
+			live = [...live, { price: q.price, asOf: q.asOf }].slice(-120);
+		});
 	});
 
 	const money = (n: number) =>
