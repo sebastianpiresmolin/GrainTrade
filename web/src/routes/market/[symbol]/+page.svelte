@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
 	import type { AccountSummary, PricePoint } from '$lib/types';
 	import { market } from '$lib/market.svelte';
@@ -8,16 +9,32 @@
 
 	let { data, form }: PageProps = $props();
 
-	// The action returns the settled account; fall back to the loaded one.
-	const account = $derived<AccountSummary>(form?.order?.account ?? data.account);
+	// Live account — background fills push it; SSR fallback until then.
+	const account = $derived<AccountSummary>(market.account ?? data.account);
 	const position = $derived(account.holdings.find((h) => h.symbol === data.quote.symbol));
+
+	// My live pending orders for this symbol (store holds all symbols).
+	const openOrders = $derived(
+		(market.orders ?? data.orders).filter((o) => o.symbol === data.quote.symbol)
+	);
 
 	$effect(() => {
 		market.seed([data.quote]);
 		market.seedDepth(data.quote.symbol, data.depth);
 		market.seedTrades(data.quote.symbol, data.trades);
+		market.seedAccount(data.account, data.orders);
 	});
 	$effect(() => market.connect());
+
+	// Apply a form action's account immediately, then let the live push refresh.
+	const synced: SubmitFunction = () => async ({ update, result }) => {
+		await update();
+		if (result.type === 'success') {
+			const acc = (result.data as { order?: { account: AccountSummary } } | undefined)?.order
+				?.account;
+			if (acc) market.applyAccount(acc);
+		}
+	};
 
 	// Live values when the stream has them, SSR fallback until then.
 	const quote = $derived(market.quotes[data.quote.symbol] ?? data.quote);
@@ -109,13 +126,13 @@
 		</p>
 	{/if}
 
-	<form method="POST" use:enhance class="market">
+	<form method="POST" use:enhance={synced} class="market">
 		<input name="quantity" type="number" min="1" step="1" value="1" aria-label="Quantity" />
 		<button type="submit" formaction="?/buy" class="buy">Buy</button>
 		<button type="submit" formaction="?/sell" class="sell" disabled={!position}>Sell</button>
 	</form>
 
-	<form method="POST" use:enhance class="limit">
+	<form method="POST" use:enhance={synced} class="limit">
 		<input name="quantity" type="number" min="1" step="1" value="1" aria-label="Limit quantity" />
 		<input name="limitPrice" type="number" min="0.01" step="0.01" placeholder="Limit" aria-label="Limit price" />
 		<button type="submit" formaction="?/limitBuy" class="buy">Bid</button>
@@ -125,7 +142,7 @@
 
 <section class="card">
 	<h2>Order book</h2>
-	<OrderBook {depth} orders={data.orders} />
+	<OrderBook {depth} orders={openOrders} />
 </section>
 
 {#if trades.length}

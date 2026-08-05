@@ -12,6 +12,10 @@ public readonly record struct MarketEvent(string Event, object Payload);
 // so the host tags it on the way out.
 public sealed record DepthUpdate(string Symbol, IReadOnlyList<DepthLevel> Bids, IReadOnlyList<DepthLevel> Asks);
 
+// The account's live state, pushed when a background fill settles so holdings,
+// cash and pending orders update without a reload.
+public sealed record AccountUpdate(AccountSummary Summary, IReadOnlyList<RestingOrder> Orders);
+
 // Bridges Orleans streams to connected browsers. Subscribes to each grain stream
 // once for the whole process and fans out to every SSE client, so N browsers cost
 // one set of Orleans subscriptions rather than N.
@@ -26,12 +30,17 @@ public sealed class MarketFeed
     private readonly ConcurrentDictionary<string, TickerQuote> _quotes = new();
     private readonly ConcurrentDictionary<string, DepthUpdate> _depth = new();
     private readonly ConcurrentDictionary<Guid, Channel<MarketEvent>> _subscribers = new();
+    private volatile AccountUpdate? _account;
 
     public IReadOnlyCollection<MarketEvent> Snapshot()
     {
-        var events = new List<MarketEvent>(_quotes.Count + _depth.Count);
+        var events = new List<MarketEvent>(_quotes.Count + _depth.Count + 1);
         events.AddRange(_quotes.Values.Select(q => new MarketEvent("quote", q)));
         events.AddRange(_depth.Values.Select(d => new MarketEvent("depth", d)));
+        if (_account is { } account)
+        {
+            events.Add(new MarketEvent("account", account));
+        }
         return events;
     }
 
@@ -49,6 +58,12 @@ public sealed class MarketFeed
     }
 
     public void PublishTrade(Trade trade) => Fan(new MarketEvent("trade", trade));
+
+    public void PublishAccount(AccountUpdate account)
+    {
+        _account = account;
+        Fan(new MarketEvent("account", account));
+    }
 
     private void Fan(MarketEvent ev)
     {

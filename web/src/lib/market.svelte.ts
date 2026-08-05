@@ -1,14 +1,25 @@
-import type { BookDepth, DepthUpdate, TickerQuote, Trade } from '$lib/types';
+import type {
+	AccountSummary,
+	AccountUpdate,
+	BookDepth,
+	DepthUpdate,
+	RestingOrder,
+	TickerQuote,
+	Trade
+} from '$lib/types';
 
 const MAX_TAPE = 20;
 
 // The single SSE connection for the app. Components read from this module —
-// none of them open their own EventSource. The stream carries three named
-// events: quote, depth, trade.
+// none of them open their own EventSource. The stream carries named events:
+// quote, depth, trade, account.
 class MarketStore {
 	quotes = $state<Record<string, TickerQuote>>({});
 	depth = $state<Record<string, BookDepth>>({});
 	trades = $state<Record<string, Trade[]>>({});
+	// The account's live state. Null until seeded from SSR or the first push.
+	account = $state<AccountSummary | null>(null);
+	orders = $state<RestingOrder[] | null>(null);
 	connected = $state(false);
 
 	#source: EventSource | null = null;
@@ -35,6 +46,12 @@ class MarketStore {
 
 			source.addEventListener('trade', (e: MessageEvent) => {
 				this.#recordTrade(JSON.parse(e.data));
+			});
+
+			source.addEventListener('account', (e: MessageEvent) => {
+				const { summary, orders }: AccountUpdate = JSON.parse(e.data);
+				this.account = summary;
+				this.orders = orders;
 			});
 
 			source.onopen = () => (this.connected = true);
@@ -69,6 +86,20 @@ class MarketStore {
 
 	seedTrades(symbol: string, trades: Trade[]) {
 		this.trades[symbol] ??= trades.slice(0, MAX_TAPE);
+	}
+
+	// Initial account from SSR; ignored once the live push has taken over.
+	seedAccount(summary: AccountSummary, orders: RestingOrder[]) {
+		if (this.account === null) {
+			this.account = summary;
+			this.orders = orders;
+		}
+	}
+
+	// Apply a foreground action's result immediately so the user's own trades
+	// don't wait for the next background push.
+	applyAccount(summary: AccountSummary) {
+		this.account = summary;
 	}
 }
 

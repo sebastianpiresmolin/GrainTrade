@@ -1,14 +1,33 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import type { SubmitFunction } from "@sveltejs/kit";
   import type { PageProps } from "./$types";
+  import type { AccountSummary } from "$lib/types";
   import { market } from "$lib/market.svelte";
 
   let { data, form }: PageProps = $props();
 
   let asPercent = $state(true);
 
+  // Live account/orders — background fills push these; SSR values until then.
+  const account = $derived(market.account ?? data.account);
+  const orders = $derived(market.orders ?? data.orders);
+
   $effect(() => market.seed(data.quotes));
+  $effect(() => market.seedAccount(data.account, data.orders));
   $effect(() => market.connect());
+
+  // Apply a form action's account immediately, then let the live push refresh.
+  const synced: SubmitFunction = () => async ({ update, result }) => {
+    await update();
+    if (result.type === "success") {
+      const d = result.data as
+        | { account?: AccountSummary; order?: { account: AccountSummary } }
+        | undefined;
+      const acc = d?.account ?? d?.order?.account;
+      if (acc) market.applyAccount(acc);
+    }
+  };
 
   const money = (n: number) =>
     new Intl.NumberFormat("en-US", {
@@ -25,7 +44,7 @@
   }
 
   const rows = $derived(
-    data.account.holdings.map((h) => {
+    account.holdings.map((h) => {
       const price = priceOf(h.symbol, h.averageCost);
       const cost = h.averageCost * h.quantity;
       const pnl = price * h.quantity - cost;
@@ -40,7 +59,7 @@
   );
 
   const holdingsValue = $derived(rows.reduce((s, r) => s + r.value, 0));
-  const totalValue = $derived(data.account.cashBalance + holdingsValue);
+  const totalValue = $derived(account.cashBalance + holdingsValue);
 
   const totals = $derived.by(() => {
     const cost = rows.reduce((s, r) => s + r.averageCost * r.quantity, 0);
@@ -66,7 +85,7 @@
   <span class="label">Account value</span>
   <span class="big">{money(totalValue)}</span>
   <div class="sub">
-    <span>Cash <strong>{money(data.account.cashBalance)}</strong></span>
+    <span>Cash <strong>{money(account.cashBalance)}</strong></span>
     {#if rows.length}
       <span class="pnl" class:up={totals.pnl >= 0} class:down={totals.pnl < 0}>
         {fmtPnl(totals.pnl, totals.pct)}
@@ -80,7 +99,7 @@
   {#if form?.error}
     <p class="error" role="alert">{form.error}</p>
   {/if}
-  <form method="POST" action="?/deposit" use:enhance>
+  <form method="POST" action="?/deposit" use:enhance={synced}>
     <input
       name="amount"
       type="number"
@@ -135,13 +154,13 @@
 {/if}
 
 <!-- Pending orders -->
-{#if data.orders.length}
+{#if orders.length}
   <section class="card">
     <div class="card-head">
       <h2><span class="pending-dot">●</span> Pending orders</h2>
     </div>
     <ul class="rows orders">
-      {#each data.orders as o (o.orderId)}
+      {#each orders as o (o.orderId)}
         <li>
           <a class="sym" href="/market/{o.symbol}">{o.symbol}</a>
           <span
@@ -151,7 +170,7 @@
           >
           <span class="detail">{o.remaining} @ {money(o.limitPrice)}</span>
           <span class="num">{money(o.remaining * o.limitPrice)}</span>
-          <form method="POST" action="?/cancel" use:enhance>
+          <form method="POST" action="?/cancel" use:enhance={synced}>
             <input type="hidden" name="symbol" value={o.symbol} />
             <input type="hidden" name="orderId" value={o.orderId} />
             <button class="cancel" type="submit" aria-label="Cancel order" title="Cancel order"

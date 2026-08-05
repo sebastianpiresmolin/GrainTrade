@@ -62,3 +62,9 @@ export interface RestingOrder {
 	quantity: number;
 	remaining: number;
 }
+
+// Live account push: settled summary + current open orders.
+export interface AccountUpdate {
+	summary: AccountSummary;
+	orders: RestingOrder[];
+}
