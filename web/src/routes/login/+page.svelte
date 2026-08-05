@@ -35,6 +35,16 @@
   </p>
 </section>
 
+<section class="login">
+  <img class="orleans_full" src="/orleans_full.png" alt="" />
+  <h3 class="note">
+    Built for the educational purpose of implementing .NET Orleans and
+    demonstrate how grains behave.<br /><br />Click the Orleans logo like the
+    one below to read more about how grains work in the specific module.
+  </h3>
+  <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+</section>
+
 <style>
   .login {
     max-width: 22rem;
@@ -88,5 +98,11 @@
     color: var(--muted);
     font-size: 0.78rem;
     margin-top: 1rem;
+  }
+  .orleans_full {
+    width: 50%;
+  }
+  .orleans_icon {
+    width: 10%;
   }
 </style>

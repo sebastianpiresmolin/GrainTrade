@@ -18,16 +18,18 @@
   $effect(() => market.connect());
 
   // Apply a form action's account immediately, then let the live push refresh.
-  const synced: SubmitFunction = () => async ({ update, result }) => {
-    await update();
-    if (result.type === "success") {
-      const d = result.data as
-        | { account?: AccountSummary; order?: { account: AccountSummary } }
-        | undefined;
-      const acc = d?.account ?? d?.order?.account;
-      if (acc) market.applyAccount(acc);
-    }
-  };
+  const synced: SubmitFunction =
+    () =>
+    async ({ update, result }) => {
+      await update();
+      if (result.type === "success") {
+        const d = result.data as
+          | { account?: AccountSummary; order?: { account: AccountSummary } }
+          | undefined;
+        const acc = d?.account ?? d?.order?.account;
+        if (acc) market.applyAccount(acc);
+      }
+    };
 
   const money = (n: number) =>
     new Intl.NumberFormat("en-US", {
@@ -82,7 +84,10 @@
 
 <!-- Account value -->
 <section class="card hero">
-  <span class="label">Account value</span>
+  <div class="orleans_space">
+    <span class="label">Account value </span>
+    <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+  </div>
   <span class="big">{money(totalValue)}</span>
   <div class="sub">
     <span>Cash <strong>{money(account.cashBalance)}</strong></span>
@@ -117,6 +122,9 @@
 <!-- Holdings -->
 {#if rows.length}
   <section class="card">
+    <div class="orleans_right">
+      <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+    </div>
     <div class="card-head">
       <h2>Holdings</h2>
       <div class="seg" data-mode={asPercent ? "pct" : "val"}>
@@ -156,6 +164,9 @@
 <!-- Pending orders -->
 {#if orders.length}
   <section class="card">
+    <div class="orleans_right">
+      <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+    </div>
     <div class="card-head">
       <h2><span class="pending-dot">●</span> Pending orders</h2>
     </div>
@@ -173,8 +184,11 @@
           <form method="POST" action="?/cancel" use:enhance={synced}>
             <input type="hidden" name="symbol" value={o.symbol} />
             <input type="hidden" name="orderId" value={o.orderId} />
-            <button class="cancel" type="submit" aria-label="Cancel order" title="Cancel order"
-              >✕</button
+            <button
+              class="cancel"
+              type="submit"
+              aria-label="Cancel order"
+              title="Cancel order">✕</button
             >
           </form>
         </li>
@@ -185,6 +199,9 @@
 
 <!-- Market -->
 <section class="card">
+  <div class="orleans_right">
+    <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+  </div>
   <div class="card-head"><h2>Market</h2></div>
   <ul class="rows market">
     {#each marketRows as q (q.symbol)}
@@ -455,5 +472,17 @@
     .orders li {
       gap: 0.4rem;
     }
+  }
+  .orleans_icon {
+    width: 5%;
+  }
+  .orleans_space {
+    display: flex;
+    justify-content: space-between;
+  }
+  .orleans_right {
+    display: flex;
+    flex-direction: row-reverse;
+    margin-bottom: 1rem;
   }
 </style>

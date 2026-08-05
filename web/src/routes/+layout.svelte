@@ -6,17 +6,15 @@
 </script>
 
 <header class="topbar">
-  <a class="brand" href="/">
-    <img src="/logo.png" alt="" width="100" height="100" />
-    <span>GrainTrade</span>
+  <a
+    class="brand"
+    href="https://github.com/sebastianpiresmolin/GrainTrade"
+    target="_blank"
+  >
+    <img src="/github.png" alt="" width="100" height="100" />
   </a>
   {#if data.username}
     <div class="right">
-      <span class="status" class:live={market.connected}>
-        <span class="dot"></span><span class="txt"
-          >{market.connected ? "Live" : "Offline"}</span
-        >
-      </span>
       <span class="user">{data.username}</span>
       <form method="POST" action="/logout">
         <button type="submit">Log out</button>
@@ -89,10 +87,11 @@
     letter-spacing: -0.01em;
     white-space: nowrap;
   }
-  /* Logo is a large square asset; the bar shows it small. */
+  /* Logo is a large square asset; the CSS size wins over the img width/height
+     attributes, so change it here — editing the attributes has no effect. */
   .brand img {
-    width: 30px;
-    height: 30px;
+    width: 120px;
+    height: 120px;
     object-fit: contain;
   }
   .status {
