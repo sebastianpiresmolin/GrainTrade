@@ -57,7 +57,7 @@
 		font-size: 0.7rem;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		color: #888;
+		color: var(--muted);
 		padding: 0 0.5rem 0.25rem;
 	}
 	.row {
@@ -83,10 +83,10 @@
 	}
 	.bids .bar {
 		right: 0;
-		background: #e8f5ec;
+		background: #e7f6ee;
 	}
 	.bids .price {
-		color: #1a7f37;
+		color: var(--up);
 		font-weight: 600;
 	}
 	.asks .bar {
@@ -94,11 +94,11 @@
 		background: #fdeceb;
 	}
 	.asks .price {
-		color: #b42318;
+		color: var(--down);
 		font-weight: 600;
 	}
 	.none {
 		font-size: 0.8rem;
-		color: #888;
+		color: var(--muted);
 	}
 </style>

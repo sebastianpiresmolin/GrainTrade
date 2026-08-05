@@ -3,9 +3,9 @@ import type { Actions, PageServerLoad } from './$types';
 import type { AccountSummary, TickerQuote } from '$lib/types';
 import { API_BASE, ACCOUNT_ID } from '$lib/server/api';
 
+// The overview: account + market in one load so the dashboard renders whole on
+// first paint. The live stream keeps prices and P&L moving after that.
 export const load: PageServerLoad = async ({ fetch }) => {
-	// Quotes come along so unrealized P&L has prices on first paint; the live
-	// stream takes over from there.
 	const [accountRes, marketRes] = await Promise.all([
 		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`),
 		fetch(`${API_BASE}/market`)
