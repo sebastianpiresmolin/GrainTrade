@@ -96,19 +96,39 @@ public sealed class MarketMaker(IClusterClient client, ILogger<MarketMaker> logg
             await book.Cancel(order.OrderId, MakerId);
         }
 
+        // Our own orders are gone now, so the book shows only other participants.
+        // Quote passively: keep our best bid strictly below the best resting ask
+        // and our best ask strictly above the best resting bid, so we never
+        // aggress into — and sweep — someone else's resting order.
+        var rest = await book.GetDepth();
+        decimal? bestBid = rest.Bids.Count > 0 ? rest.Bids[0].Price : null;
+        decimal? bestAsk = rest.Asks.Count > 0 ? rest.Asks[0].Price : null;
+
         var now = DateTimeOffset.UtcNow;
         var basis = decimal.Round(mid, 2);
-        for (var k = 1; k <= Levels; k++)
-        {
-            var offset = decimal.Round(mid * Step * k, 2);
-            var qty = 100 * (k + 1);
+        var gap = Math.Max(0.01m, decimal.Round(mid * Step, 2));
 
-            var bid = basis - offset;
-            if (bid > 0)
+        var bidTop = basis - gap;
+        if (bestAsk is decimal ask && bidTop >= ask)
+        {
+            bidTop = ask - 0.01m;
+        }
+        var askBottom = basis + gap;
+        if (bestBid is decimal bid && askBottom <= bid)
+        {
+            askBottom = bid + 0.01m;
+        }
+
+        for (var k = 0; k < Levels; k++)
+        {
+            var qty = 100 * (k + 2);
+
+            var bidPrice = bidTop - gap * k;
+            if (bidPrice > 0)
             {
-                await book.PlaceLimit(Order(symbol, OrderSide.Buy, bid, qty, now));
+                await book.PlaceLimit(Order(symbol, OrderSide.Buy, bidPrice, qty, now));
             }
-            await book.PlaceLimit(Order(symbol, OrderSide.Sell, basis + offset, qty, now));
+            await book.PlaceLimit(Order(symbol, OrderSide.Sell, askBottom + gap * k, qty, now));
         }
 
         _lastMid[symbol] = mid;
