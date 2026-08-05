@@ -47,3 +47,8 @@ export interface BookDepth {
 	bids: DepthLevel[];
 	asks: DepthLevel[];
 }
+
+// A depth event off the stream: BookDepth tagged with which book it's for.
+export interface DepthUpdate extends BookDepth {
+	symbol: string;
+}

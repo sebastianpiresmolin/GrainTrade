@@ -1,6 +1,7 @@
 using GrainTrade.Abstractions;
 using GrainTrade.Grains.Models;
 using Orleans.Runtime;
+using Orleans.Streams;
 
 namespace GrainTrade.Grains;
 
@@ -19,6 +20,11 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
     private readonly IPersistentState<OrderBookState> _state;
     private readonly TimeProvider _time;
 
+    // Set on activation. Depth and trades are pushed to subscribers as a side
+    // effect of a book change, the same way TickerGrain pushes price ticks.
+    private IAsyncStream<BookDepth> _depthStream = null!;
+    private IAsyncStream<Trade> _tradeStream = null!;
+
     public OrderBookGrain(
         [PersistentState("orderbook", "orderbooks")] IPersistentState<OrderBookState> state,
         TimeProvider time)
@@ -27,9 +33,19 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
         _time = time;
     }
 
+    public override Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        var symbol = this.GetPrimaryKeyString();
+        var provider = this.GetStreamProvider(StreamConstants.Provider);
+        _depthStream = provider.GetStream<BookDepth>(StreamConstants.DepthNamespace, symbol);
+        _tradeStream = provider.GetStream<Trade>(StreamConstants.TradeNamespace, symbol);
+        return Task.CompletedTask;
+    }
+
     public async Task<IReadOnlyList<Fill>> PlaceLimit(RestingOrder order)
     {
         var fills = new List<Fill>();
+        var executed = new List<Trade>();
         var remaining = order.Quantity;
         var now = _time.GetUtcNow();
 
@@ -50,7 +66,7 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
             Replace(resting with { Remaining = resting.Remaining - quantity });
             remaining -= quantity;
 
-            RecordTrade(new Trade
+            var trade = new Trade
             {
                 TradeId = Guid.NewGuid(),
                 AccountId = order.AccountId,
@@ -59,7 +75,9 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
                 Quantity = quantity,
                 Price = price,
                 ExecutedAt = now,
-            });
+            };
+            executed.Add(trade);
+            RecordTrade(trade);
         }
 
         // Whatever didn't match rests.
@@ -73,6 +91,14 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
         await _state.WriteStateAsync();
 
         await EnsureExpirySweep();
+
+        // Every placement changes the book; the tape gains a row per match.
+        await PublishDepth();
+        foreach (var trade in executed)
+        {
+            await _tradeStream.OnNextAsync(trade);
+        }
+
         return fills;
     }
 
@@ -86,6 +112,8 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
 
         _state.State.Orders.RemoveAt(index);
         await _state.WriteStateAsync();
+
+        await PublishDepth();
         return true;
     }
 
@@ -106,16 +134,23 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
         Task.FromResult<IReadOnlyList<RestingOrder>>(
             _state.State.Orders.Where(o => o.AccountId == accountId).ToArray());
 
-    public Task<BookDepth> GetDepth() => Task.FromResult(new BookDepth
+    public Task<BookDepth> GetDepth() => Task.FromResult(BuildDepth());
+
+    private BookDepth BuildDepth() => new()
     {
         Bids = Matching.Aggregate(_state.State.Orders, OrderSide.Buy),
         Asks = Matching.Aggregate(_state.State.Orders, OrderSide.Sell),
-    });
+    };
+
+    private Task PublishDepth() => _depthStream.OnNextAsync(BuildDepth());
 
     public async Task Record(Trade trade)
     {
         RecordTrade(trade);
         await _state.WriteStateAsync();
+
+        // A market order doesn't rest, so depth is unchanged — only the tape.
+        await _tradeStream.OnNextAsync(trade);
     }
 
     public Task<IReadOnlyList<Trade>> GetRecentTrades() =>
@@ -136,6 +171,7 @@ public sealed class OrderBookGrain : Grain, IOrderBookGrain, IRemindable
         if (expired > 0)
         {
             await _state.WriteStateAsync();
+            await PublishDepth();
         }
 
         // Nothing left to sweep — stop costing a persisted reminder.

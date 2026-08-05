@@ -3,14 +3,17 @@ using Orleans.Streams;
 
 namespace GrainTrade.ApiHost.Streaming;
 
-// Owns the process-wide Orleans subscriptions: one per symbol, established at
-// startup and held for the host's lifetime.
+// Owns the process-wide Orleans subscriptions: for every symbol, its ticker,
+// depth, and trade streams, established at startup and held for the host's
+// lifetime.
 public sealed class MarketFeedSubscriber(
     IClusterClient client,
     MarketFeed feed,
     ILogger<MarketFeedSubscriber> logger) : IHostedService
 {
-    private readonly List<StreamSubscriptionHandle<TickerQuote>> _handles = [];
+    // Handles across the three stream types have different generic arguments and
+    // no shared non-generic base here, so keep their unsubscribe actions instead.
+    private readonly List<Func<Task>> _unsubscribes = [];
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -18,28 +21,46 @@ public sealed class MarketFeedSubscriber(
 
         foreach (var symbol in MarketSymbols.All)
         {
-            var stream = provider.GetStream<TickerQuote>(StreamConstants.TickerNamespace, symbol);
-            _handles.Add(await stream.SubscribeAsync(OnQuote));
+            var quotes = provider.GetStream<TickerQuote>(StreamConstants.TickerNamespace, symbol);
+            var quoteHandle = await quotes.SubscribeAsync((quote, _) =>
+            {
+                feed.PublishQuote(quote);
+                return Task.CompletedTask;
+            });
+            _unsubscribes.Add(quoteHandle.UnsubscribeAsync);
 
-            // Grains only tick while activated, and a stream subscription alone
-            // doesn't activate one — so wake each ticker up.
+            // symbol is captured per-iteration; the book stream carries no symbol,
+            // so the host tags it here.
+            var depth = provider.GetStream<BookDepth>(StreamConstants.DepthNamespace, symbol);
+            var depthHandle = await depth.SubscribeAsync((update, _) =>
+            {
+                feed.PublishDepth(symbol, update);
+                return Task.CompletedTask;
+            });
+            _unsubscribes.Add(depthHandle.UnsubscribeAsync);
+
+            var trades = provider.GetStream<Trade>(StreamConstants.TradeNamespace, symbol);
+            var tradeHandle = await trades.SubscribeAsync((trade, _) =>
+            {
+                feed.PublishTrade(trade);
+                return Task.CompletedTask;
+            });
+            _unsubscribes.Add(tradeHandle.UnsubscribeAsync);
+
+            // A ticker only ticks while activated, and subscribing doesn't
+            // activate it — so wake each one. Books don't need waking: they
+            // publish only when an order changes them, which activates them.
             await client.GetGrain<ITickerGrain>(symbol).GetQuote();
         }
 
-        logger.LogInformation("Subscribed to {Count} ticker streams.", _handles.Count);
-    }
-
-    private Task OnQuote(TickerQuote quote, StreamSequenceToken? token)
-    {
-        feed.Publish(quote);
-        return Task.CompletedTask;
+        logger.LogInformation("Subscribed to {Count} market streams.", _unsubscribes.Count);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        foreach (var handle in _handles)
+        foreach (var unsubscribe in _unsubscribes)
         {
-            await handle.UnsubscribeAsync();
+            await unsubscribe();
         }
     }
 }

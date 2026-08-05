@@ -28,17 +28,17 @@ public static class StreamEndpoints
 
         try
         {
-            // Send what we already know so a new tab isn't blank until the
-            // next tick.
-            foreach (var quote in feed.Latest)
+            // Replay current prices and depth so a new tab isn't blank until the
+            // next change.
+            foreach (var ev in feed.Snapshot())
             {
-                await WriteEvent(http, quote, cancellationToken);
+                await WriteEvent(http, ev, cancellationToken);
             }
             await http.Response.Body.FlushAsync(cancellationToken);
 
-            await foreach (var quote in reader.ReadAllAsync(cancellationToken))
+            await foreach (var ev in reader.ReadAllAsync(cancellationToken))
             {
-                await WriteEvent(http, quote, cancellationToken);
+                await WriteEvent(http, ev, cancellationToken);
                 await http.Response.Body.FlushAsync(cancellationToken);
             }
         }
@@ -52,8 +52,9 @@ public static class StreamEndpoints
         }
     }
 
-    private static async Task WriteEvent(HttpContext http, object payload, CancellationToken ct)
+    private static async Task WriteEvent(HttpContext http, MarketEvent ev, CancellationToken ct)
     {
-        await http.Response.WriteAsync($"data: {JsonSerializer.Serialize(payload, Json)}\n\n", ct);
+        var data = JsonSerializer.Serialize(ev.Payload, Json);
+        await http.Response.WriteAsync($"event: {ev.Event}\ndata: {data}\n\n", ct);
     }
 }

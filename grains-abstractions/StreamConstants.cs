@@ -6,6 +6,8 @@ public static class StreamConstants
 {
     public const string Provider = "graintrade";
 
-    // One stream per symbol, keyed by symbol within this namespace.
+    // One stream per symbol within each namespace, keyed by the symbol.
     public const string TickerNamespace = "ticker-quotes";
+    public const string DepthNamespace = "book-depth";
+    public const string TradeNamespace = "book-trades";
 }

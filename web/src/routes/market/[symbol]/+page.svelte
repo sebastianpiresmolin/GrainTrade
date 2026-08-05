@@ -13,11 +13,15 @@
 
 	$effect(() => {
 		market.seed([data.quote]);
+		market.seedDepth(data.quote.symbol, data.depth);
+		market.seedTrades(data.quote.symbol, data.trades);
 	});
 	$effect(() => market.connect());
 
-	// Live quote when the stream has one, SSR value until then.
+	// Live values when the stream has them, SSR fallback until then.
 	const quote = $derived(market.quotes[data.quote.symbol] ?? data.quote);
+	const depth = $derived(market.depth[data.quote.symbol] ?? data.depth);
+	const trades = $derived(market.trades[data.quote.symbol] ?? data.trades);
 
 	// Extend the loaded history with ticks that arrive while we're on the page.
 	let live = $state<PricePoint[]>([]);
@@ -120,12 +124,12 @@
 	</div>
 
 	<h2>Order book</h2>
-	<OrderBook depth={data.depth} />
+	<OrderBook {depth} />
 
-	{#if data.trades.length}
+	{#if trades.length}
 		<h2>Recent trades</h2>
 		<ul class="trades">
-			{#each data.trades.slice(0, 8) as trade (trade.tradeId)}
+			{#each trades.slice(0, 8) as trade (trade.tradeId)}
 				<li>
 					<span class:buy-side={trade.side === 'Buy'} class:sell-side={trade.side === 'Sell'}>
 						{trade.side}
