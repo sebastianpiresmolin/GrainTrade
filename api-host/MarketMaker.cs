@@ -96,39 +96,24 @@ public sealed class MarketMaker(IClusterClient client, ILogger<MarketMaker> logg
             await book.Cancel(order.OrderId, MakerId);
         }
 
-        // Our own orders are gone now, so the book shows only other participants.
-        // Quote passively: keep our best bid strictly below the best resting ask
-        // and our best ask strictly above the best resting bid, so we never
-        // aggress into — and sweep — someone else's resting order.
-        var rest = await book.GetDepth();
-        decimal? bestBid = rest.Bids.Count > 0 ? rest.Bids[0].Price : null;
-        decimal? bestAsk = rest.Asks.Count > 0 ? rest.Asks[0].Price : null;
-
+        // Quote a ladder around the mid. These go through the matching engine, so
+        // they lift any resting ask below the mid and hit any resting bid above it
+        // — orders the market has crossed fill, as a limit order should. Orders
+        // priced away from the market (a sell above the mid, a buy below it) rest
+        // untouched until the price reaches them.
         var now = DateTimeOffset.UtcNow;
         var basis = decimal.Round(mid, 2);
-        var gap = Math.Max(0.01m, decimal.Round(mid * Step, 2));
-
-        var bidTop = basis - gap;
-        if (bestAsk is decimal ask && bidTop >= ask)
+        for (var k = 1; k <= Levels; k++)
         {
-            bidTop = ask - 0.01m;
-        }
-        var askBottom = basis + gap;
-        if (bestBid is decimal bid && askBottom <= bid)
-        {
-            askBottom = bid + 0.01m;
-        }
+            var offset = decimal.Round(mid * Step * k, 2);
+            var qty = 100 * (k + 1);
 
-        for (var k = 0; k < Levels; k++)
-        {
-            var qty = 100 * (k + 2);
-
-            var bidPrice = bidTop - gap * k;
-            if (bidPrice > 0)
+            var bid = basis - offset;
+            if (bid > 0)
             {
-                await book.PlaceLimit(Order(symbol, OrderSide.Buy, bidPrice, qty, now));
+                await book.PlaceLimit(Order(symbol, OrderSide.Buy, bid, qty, now));
             }
-            await book.PlaceLimit(Order(symbol, OrderSide.Sell, askBottom + gap * k, qty, now));
+            await book.PlaceLimit(Order(symbol, OrderSide.Sell, basis + offset, qty, now));
         }
 
         _lastMid[symbol] = mid;
