@@ -1,15 +1,24 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import type { AccountSummary } from '$lib/types';
+import type { AccountSummary, TickerQuote } from '$lib/types';
 import { API_BASE, ACCOUNT_ID } from '$lib/server/api';
 
 export const load: PageServerLoad = async ({ fetch }) => {
-	const res = await fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`);
-	if (!res.ok) {
-		throw new Error(`Failed to load account (${res.status}).`);
+	// Quotes come along so unrealized P&L has prices on first paint; the live
+	// stream takes over from there.
+	const [accountRes, marketRes] = await Promise.all([
+		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`),
+		fetch(`${API_BASE}/market`)
+	]);
+	if (!accountRes.ok) {
+		throw new Error(`Failed to load account (${accountRes.status}).`);
 	}
-	const account: AccountSummary = await res.json();
-	return { account };
+	if (!marketRes.ok) {
+		throw new Error(`Failed to load market (${marketRes.status}).`);
+	}
+	const account: AccountSummary = await accountRes.json();
+	const quotes: TickerQuote[] = await marketRes.json();
+	return { account, quotes };
 };
 
 // Client-side validation is a courtesy; the grain owns the real invariant.
