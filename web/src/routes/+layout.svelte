@@ -13,7 +13,9 @@
   {#if data.username}
     <div class="right">
       <span class="status" class:live={market.connected}>
-        <span class="dot"></span>{market.connected ? "Live" : "Offline"}
+        <span class="dot"></span><span class="txt"
+          >{market.connected ? "Live" : "Offline"}</span
+        >
       </span>
       <span class="user">{data.username}</span>
       <form method="POST" action="/logout">
@@ -68,6 +70,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.75rem;
     height: 56px;
     padding: 0 1.25rem;
     background: rgba(255, 255, 255, 0.85);
@@ -78,11 +81,19 @@
     display: flex;
     align-items: center;
     gap: 0.55rem;
+    min-width: 0;
     text-decoration: none;
     color: var(--text);
     font-weight: 700;
     font-size: 1.05rem;
     letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  /* Logo is a large square asset; the bar shows it small. */
+  .brand img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
   }
   .status {
     display: inline-flex;
@@ -112,10 +123,15 @@
     display: flex;
     align-items: center;
     gap: 0.9rem;
+    min-width: 0;
   }
   .user {
     font-size: 0.85rem;
     font-weight: 600;
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .right form {
     margin: 0;
@@ -128,6 +144,7 @@
     padding: 0.3rem 0.7rem;
     font-size: 0.8rem;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
   }
   .right button:hover {
@@ -139,5 +156,28 @@
     max-width: 40rem;
     margin: 0 auto;
     padding: 1.5rem 1.25rem 4rem;
+  }
+
+  @media (max-width: 560px) {
+    .topbar {
+      padding: 0 0.85rem;
+      gap: 0.5rem;
+    }
+    .right {
+      gap: 0.6rem;
+    }
+    /* Keep the live dot, drop its label to save room. */
+    .status .txt {
+      display: none;
+    }
+    .user {
+      max-width: 6rem;
+    }
+    .right button {
+      padding: 0.3rem 0.55rem;
+    }
+    .content {
+      padding: 1rem 0.85rem 3rem;
+    }
   }
 </style>

@@ -407,10 +407,12 @@
 
   .funds form {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
   .funds input {
-    flex: 1;
+    flex: 1 1 12rem;
+    min-width: 0;
     padding: 0.5rem 0.7rem;
     border: 1px solid var(--border);
     border-radius: 0.5rem;
@@ -418,6 +420,7 @@
     background: var(--surface-2);
   }
   .ghost {
+    flex: 1 1 auto;
     padding: 0.5rem 0.9rem;
     border: 1px solid var(--border);
     border-radius: 0.5rem;
@@ -437,5 +440,20 @@
     background: #fdeceb;
     color: var(--down);
     font-size: 0.85rem;
+  }
+
+  @media (max-width: 560px) {
+    .card {
+      padding: 1rem;
+    }
+    .hero .big {
+      font-size: 2rem;
+    }
+    .chg {
+      min-width: 4.5rem;
+    }
+    .orders li {
+      gap: 0.4rem;
+    }
   }
 </style>

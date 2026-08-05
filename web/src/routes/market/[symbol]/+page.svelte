@@ -318,4 +318,22 @@
 	time {
 		color: var(--muted);
 	}
+
+	@media (max-width: 560px) {
+		.card {
+			padding: 1rem;
+		}
+		.head .row {
+			flex-wrap: wrap;
+			gap: 0.25rem 1rem;
+		}
+		.price {
+			font-size: 1.6rem;
+		}
+		/* Narrower action-button columns so the number inputs keep room. */
+		form {
+			grid-template-columns: 1fr 1fr 3.4rem 3.4rem;
+			gap: 0.4rem;
+		}
+	}
 </style>
