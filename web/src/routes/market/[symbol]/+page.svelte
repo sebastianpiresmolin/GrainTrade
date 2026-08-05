@@ -109,7 +109,7 @@
 		</p>
 	{/if}
 
-	<form method="POST" use:enhance>
+	<form method="POST" use:enhance class="market">
 		<input name="quantity" type="number" min="1" step="1" value="1" aria-label="Quantity" />
 		<button type="submit" formaction="?/buy" class="buy">Buy</button>
 		<button type="submit" formaction="?/sell" class="sell" disabled={!position}>Sell</button>
@@ -213,15 +213,23 @@
 	.wallet small {
 		color: var(--muted);
 	}
+	/* Both rows share one grid so the action buttons line up in fixed columns:
+	   two flexible input columns, then equal-width primary/secondary buttons. */
 	form {
-		display: flex;
+		display: grid;
+		grid-template-columns: 1fr 1fr 4.75rem 4.75rem;
 		gap: 0.5rem;
 	}
 	.limit {
 		margin-top: 0.5rem;
 	}
+	/* Market order has no price, so its quantity spans both input columns. */
+	.market input {
+		grid-column: 1 / 3;
+	}
 	input {
-		flex: 1;
+		width: 100%;
+		min-width: 0;
 		padding: 0.5rem 0.7rem;
 		border: 1px solid var(--border);
 		border-radius: 0.5rem;
@@ -229,7 +237,7 @@
 		background: var(--surface-2);
 	}
 	button {
-		padding: 0.5rem 1.15rem;
+		padding: 0.5rem 0;
 		border: 0;
 		border-radius: 0.5rem;
 		color: #fff;
