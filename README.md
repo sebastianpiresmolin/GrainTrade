@@ -1,12 +1,25 @@
 # GrainTrade
 
-A mock stock-trading platform built to explore **Microsoft Orleans** (the actor
-model — grains, persistence, timers, streams) and **SvelteKit** (Svelte 5 runes,
-load functions, form actions).
+A mock commodities-trading platform built on **Microsoft Orleans** (grains,
+persistence, timers, reminders, streams) and **SvelteKit** (Svelte 5 runes, load
+functions, form actions).
 
-Each user account and each ticker maps almost one-to-one onto a grain, which makes
-trading a natural domain for Orleans: a grain processes one message at a time, so
-an account's balance can't be corrupted by concurrent orders without any locking.
+Trading is a natural fit for the actor model. Each account, ticker, and order book
+is a grain, and a grain handles one message at a time, so an account's balance can't
+be corrupted by concurrent orders and the book keeps price-time priority, both
+without a single lock.
+
+Every card in the UI carries an Orleans icon. Click it to read how the grain behind
+that card works, with a snippet of the real source.
+
+## Features
+
+- **Accounts**: deposit, withdraw, and hold cash and positions, one `AccountGrain` per user.
+- **Live prices**: each `TickerGrain` walks a random-walk price on a timer and pushes ticks over Orleans Streams to the browser.
+- **Market orders**: settle against the account immediately, then record on the book.
+- **Limit orders**: rest on an `OrderBookGrain`, match by price-time priority, reserve cash or shares while pending, and expire on a reminder.
+- **Live account**: background fills update your balance, holdings, and pending orders without a reload.
+- **Demo login**: pick a username and you get a portfolio. No password; it exists so people can try the demo with separate accounts.
 
 ## Architecture
 
@@ -16,17 +29,18 @@ an account's balance can't be corrupted by concurrent orders without any locking
 │  (web)      │◀──────────│  (ASP.NET Core,  │───────────▶│  (grain host)   │
 │             │           │   Orleans client)│             │                 │
 └─────────────┘           └──────────────────┘             │  AccountGrain   │
-   :5173                       :5080                        │  …future grains │
+   :5173                       :5080                        │  TickerGrain    │
+                                                            │  OrderBookGrain │
                                                             └────────┬────────┘
                                                                      │
                                                             IPersistentState
-                                                              (memory → SQL)
+                                                              (memory + SQL)
 ```
 
-The API host is an Orleans **client**, not a silo — it talks to grains only through
-the interfaces in `grains-abstractions`, never referencing grain implementations.
-That client⇄silo seam is the "distributed backend ↔ reactive frontend" boundary
-the project is built to exercise.
+The API host is an Orleans **client**, not a silo. It talks to grains only through
+the interfaces in `grains-abstractions` and never references a grain implementation.
+Price ticks and order fills reach the browser over Server-Sent Events, bridged from
+Orleans Streams in the API host.
 
 ## Repository layout
 
@@ -42,12 +56,12 @@ the project is built to exercise.
 
 - **.NET SDK 9**
 - **Node.js ≥ 20.19** (Vite 8 requirement)
-- **PostgreSQL** — optional; without it the stack runs fully in memory
+- **PostgreSQL**: optional. Without it the stack runs fully in memory.
 
 ## Durable storage (optional)
 
 With no connection string configured, the silo uses localhost clustering and
-memory storage, and everything works — state just doesn't survive a restart.
+memory storage, and everything works. State just doesn't survive a restart.
 
 To go durable, create the database and apply Orleans' schema:
 
@@ -76,7 +90,7 @@ What goes where, and why:
 
 | Provider | Store | Rationale |
 | --- | --- | --- |
-| `accounts` | Postgres | Money — a restart must not lose it |
+| `accounts` | Postgres | Money. A restart must not lose it |
 | `orderbooks` | Postgres | Executed trades are a permanent record |
 | `tickers` | Memory | A simulated price is meaningless after a restart; it reseeds deterministically per symbol |
 | clustering | Postgres | Real membership table, so a second silo could join |
@@ -98,30 +112,20 @@ It waits for the silo to report ready before starting the API host (an
 Orleans client can't connect to a cluster that isn't up yet), writes per-process
 logs to `.logs/`, and stops everything on Ctrl+C.
 
-To run them by hand instead — the order matters:
+To run them by hand instead, in this order:
 
 ```sh
-# 1. Silo — hosts the grains
+# 1. Silo: hosts the grains
 dotnet run --project silo/GrainTrade.Silo
 
-# 2. API host — Orleans client + REST, on http://localhost:5080
+# 2. API host: Orleans client + REST, on http://localhost:5080
 dotnet run --project api-host --urls http://localhost:5080
 
-# 3. Web — SvelteKit dev server, on http://localhost:5173
+# 3. Web: SvelteKit dev server, on http://localhost:5173
 cd web && npm install && npm run dev
 ```
 
-Then open <http://localhost:5173/market>.
-
-## Status
-
-Built as thin vertical slices, each touching both stacks.
-
-- [x] **Slice 1** — `AccountGrain` deposit/withdraw → REST → Svelte account page
-- [x] **Slice 2** — `TickerGrain` with a timer-driven random-walk price, polled by `/market`
-- [x] **Slice 3** — push price updates live (Orleans Streams → SSE)
-- [x] **Slice 4** — market orders: `AccountGrain` settles cash + holdings, `OrderBookGrain` records fills
-- [x] **Slice 5** — durable persistence: accounts, order books, and clustering on Postgres
+Then open <http://localhost:5173> and pick a username.
 
 ## License
 

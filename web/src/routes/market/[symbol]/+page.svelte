@@ -6,6 +6,8 @@
   import type { AccountSummary, PricePoint } from "$lib/types";
   import { market } from "$lib/market.svelte";
   import OrderBook from "$lib/OrderBook.svelte";
+  import GrainInfo from "$lib/GrainInfo.svelte";
+  import { tradeFormInfo, tapeInfo } from "$lib/grainInfo";
 
   let { data, form }: PageProps = $props();
 
@@ -93,9 +95,6 @@
 <a class="back" href="/">← Overview</a>
 
 <section class="card head">
-  <div class="orleans_right">
-    <img class="orleans_icon" src="/orleans_icon.png" alt="" />
-  </div>
   <div class="row">
     <h1>{quote.symbol}</h1>
     <div class="price" class:up={rising} class:down={!rising}>
@@ -126,7 +125,7 @@
 
 <section class="card">
   <div class="orleans_right">
-    <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+    <GrainInfo info={tradeFormInfo} />
   </div>
   <div class="wallet">
     <span>Cash <strong>{money(account.cashBalance)}</strong></span>
@@ -194,9 +193,6 @@
 </section>
 
 <section class="card">
-  <div class="orleans_right">
-    <img class="orleans_icon" src="/orleans_icon.png" alt="" />
-  </div>
   <h2>Order book</h2>
   <OrderBook {depth} orders={openOrders} />
 </section>
@@ -204,7 +200,7 @@
 {#if trades.length}
   <section class="card">
     <div class="orleans_right">
-      <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+      <GrainInfo info={tapeInfo} />
     </div>
     <h2>Recent trades</h2>
     <ul class="trades">
@@ -397,13 +393,6 @@
       grid-template-columns: 1fr 1fr 3.4rem 3.4rem;
       gap: 0.4rem;
     }
-  }
-  .orleans_icon {
-    width: 5%;
-  }
-  .orleans_space {
-    display: flex;
-    justify-content: space-between;
   }
   .orleans_right {
     display: flex;

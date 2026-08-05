@@ -4,6 +4,13 @@
   import type { PageProps } from "./$types";
   import type { AccountSummary } from "$lib/types";
   import { market } from "$lib/market.svelte";
+  import GrainInfo from "$lib/GrainInfo.svelte";
+  import {
+    accountInfo,
+    holdingsInfo,
+    ordersInfo,
+    marketInfo,
+  } from "$lib/grainInfo";
 
   let { data, form }: PageProps = $props();
 
@@ -86,7 +93,7 @@
 <section class="card hero">
   <div class="orleans_space">
     <span class="label">Account value </span>
-    <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+    <GrainInfo info={accountInfo} />
   </div>
   <span class="big">{money(totalValue)}</span>
   <div class="sub">
@@ -123,7 +130,7 @@
 {#if rows.length}
   <section class="card">
     <div class="orleans_right">
-      <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+      <GrainInfo info={holdingsInfo} />
     </div>
     <div class="card-head">
       <h2>Holdings</h2>
@@ -165,7 +172,7 @@
 {#if orders.length}
   <section class="card">
     <div class="orleans_right">
-      <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+      <GrainInfo info={ordersInfo} />
     </div>
     <div class="card-head">
       <h2><span class="pending-dot">●</span> Pending orders</h2>
@@ -200,7 +207,7 @@
 <!-- Market -->
 <section class="card">
   <div class="orleans_right">
-    <img class="orleans_icon" src="/orleans_icon.png" alt="" />
+    <GrainInfo info={marketInfo} />
   </div>
   <div class="card-head"><h2>Market</h2></div>
   <ul class="rows market">
@@ -472,9 +479,6 @@
     .orders li {
       gap: 0.4rem;
     }
-  }
-  .orleans_icon {
-    width: 5%;
   }
   .orleans_space {
     display: flex;

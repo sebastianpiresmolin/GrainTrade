@@ -94,30 +94,6 @@
     height: 120px;
     object-fit: contain;
   }
-  .status {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-  }
-  .status .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #c2c8d0;
-  }
-  .status.live {
-    color: var(--brand);
-  }
-  .status.live .dot {
-    background: var(--brand);
-    box-shadow: 0 0 0 3px rgba(10, 157, 87, 0.15);
-  }
-
   .right {
     display: flex;
     align-items: center;
@@ -164,10 +140,6 @@
     }
     .right {
       gap: 0.6rem;
-    }
-    /* Keep the live dot, drop its label to save room. */
-    .status .txt {
-      display: none;
     }
     .user {
       max-width: 6rem;
