@@ -30,17 +30,12 @@ public sealed class MarketFeed
     private readonly ConcurrentDictionary<string, TickerQuote> _quotes = new();
     private readonly ConcurrentDictionary<string, DepthUpdate> _depth = new();
     private readonly ConcurrentDictionary<Guid, Channel<MarketEvent>> _subscribers = new();
-    private volatile AccountUpdate? _account;
 
     public IReadOnlyCollection<MarketEvent> Snapshot()
     {
-        var events = new List<MarketEvent>(_quotes.Count + _depth.Count + 1);
+        var events = new List<MarketEvent>(_quotes.Count + _depth.Count);
         events.AddRange(_quotes.Values.Select(q => new MarketEvent("quote", q)));
         events.AddRange(_depth.Values.Select(d => new MarketEvent("depth", d)));
-        if (_account is { } account)
-        {
-            events.Add(new MarketEvent("account", account));
-        }
         return events;
     }
 
@@ -58,12 +53,6 @@ public sealed class MarketFeed
     }
 
     public void PublishTrade(Trade trade) => Fan(new MarketEvent("trade", trade));
-
-    public void PublishAccount(AccountUpdate account)
-    {
-        _account = account;
-        Fan(new MarketEvent("account", account));
-    }
 
     private void Fan(MarketEvent ev)
     {

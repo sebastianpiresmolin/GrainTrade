@@ -9,16 +9,17 @@ import type {
 	TickerQuote,
 	Trade
 } from '$lib/types';
-import { ACCOUNT_ID, API_BASE } from '$lib/server/api';
+import { API_BASE } from '$lib/server/api';
 
-export const load: PageServerLoad = async ({ fetch, params }) => {
+export const load: PageServerLoad = async ({ fetch, params, locals }) => {
+	const acct = locals.accountId!;
 	const [quoteRes, historyRes, tradesRes, depthRes, accountRes, ordersRes] = await Promise.all([
 		fetch(`${API_BASE}/market/${params.symbol}`),
 		fetch(`${API_BASE}/market/${params.symbol}/history`),
 		fetch(`${API_BASE}/market/${params.symbol}/trades`),
 		fetch(`${API_BASE}/market/${params.symbol}/depth`),
-		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`),
-		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}/orders`)
+		fetch(`${API_BASE}/accounts/${acct}`),
+		fetch(`${API_BASE}/accounts/${acct}/orders`)
 	]);
 
 	if (quoteRes.status === 404) {
@@ -51,6 +52,7 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 // Client-side checks are a courtesy; the grain owns funds and share counts.
 async function order(
 	fetch: typeof globalThis.fetch,
+	acct: string,
 	symbol: string,
 	side: OrderSide,
 	formData: FormData
@@ -61,7 +63,7 @@ async function order(
 		return fail(400, { error: 'Enter a whole number of shares greater than zero.' });
 	}
 
-	const res = await fetch(`${API_BASE}/accounts/${ACCOUNT_ID}/orders`, {
+	const res = await fetch(`${API_BASE}/accounts/${acct}/orders`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ symbol, side, quantity })
@@ -80,6 +82,7 @@ async function order(
 // level into the depth view. Re-running load() after the action refreshes it.
 async function limit(
 	fetch: typeof globalThis.fetch,
+	acct: string,
 	symbol: string,
 	side: OrderSide,
 	formData: FormData
@@ -93,7 +96,7 @@ async function limit(
 		return fail(400, { error: 'Enter a limit price greater than zero.' });
 	}
 
-	const res = await fetch(`${API_BASE}/accounts/${ACCOUNT_ID}/limit-orders`, {
+	const res = await fetch(`${API_BASE}/accounts/${acct}/limit-orders`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ symbol, side, quantity, limitPrice })
@@ -109,12 +112,12 @@ async function limit(
 }
 
 export const actions: Actions = {
-	buy: async ({ request, fetch, params }) =>
-		order(fetch, params.symbol, 'Buy', await request.formData()),
-	sell: async ({ request, fetch, params }) =>
-		order(fetch, params.symbol, 'Sell', await request.formData()),
-	limitBuy: async ({ request, fetch, params }) =>
-		limit(fetch, params.symbol, 'Buy', await request.formData()),
-	limitSell: async ({ request, fetch, params }) =>
-		limit(fetch, params.symbol, 'Sell', await request.formData())
+	buy: async ({ request, fetch, params, locals }) =>
+		order(fetch, locals.accountId!, params.symbol, 'Buy', await request.formData()),
+	sell: async ({ request, fetch, params, locals }) =>
+		order(fetch, locals.accountId!, params.symbol, 'Sell', await request.formData()),
+	limitBuy: async ({ request, fetch, params, locals }) =>
+		limit(fetch, locals.accountId!, params.symbol, 'Buy', await request.formData()),
+	limitSell: async ({ request, fetch, params, locals }) =>
+		limit(fetch, locals.accountId!, params.symbol, 'Sell', await request.formData())
 };

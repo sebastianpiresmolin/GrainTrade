@@ -1,7 +1,8 @@
 <script lang="ts">
   import { market } from "$lib/market.svelte";
+  import type { LayoutProps } from "./$types";
 
-  let { children } = $props();
+  let { data, children }: LayoutProps = $props();
 </script>
 
 <header class="topbar">
@@ -9,9 +10,17 @@
     <img src="/logo.png" alt="" width="100" height="100" />
     <span>GrainTrade</span>
   </a>
-  <span class="status" class:live={market.connected}>
-    <span class="dot"></span>{market.connected ? "Live" : "Offline"}
-  </span>
+  {#if data.username}
+    <div class="right">
+      <span class="status" class:live={market.connected}>
+        <span class="dot"></span>{market.connected ? "Live" : "Offline"}
+      </span>
+      <span class="user">{data.username}</span>
+      <form method="POST" action="/logout">
+        <button type="submit">Log out</button>
+      </form>
+    </div>
+  {/if}
 </header>
 
 <main class="content">
@@ -97,6 +106,33 @@
   .status.live .dot {
     background: var(--brand);
     box-shadow: 0 0 0 3px rgba(10, 157, 87, 0.15);
+  }
+
+  .right {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .user {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .right form {
+    margin: 0;
+  }
+  .right button {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .right button:hover {
+    color: var(--down);
+    border-color: var(--down);
   }
 
   .content {

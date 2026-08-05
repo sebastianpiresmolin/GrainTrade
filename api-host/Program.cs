@@ -48,9 +48,6 @@ builder.Services.AddHostedService<MarketFeedSubscriber>();
 // Synthetic liquidity so limit orders have a counterparty and the book shows depth.
 builder.Services.AddHostedService<MarketMaker>();
 
-// Pushes the account over SSE when a background fill settles, so the UI stays live.
-builder.Services.AddHostedService<AccountLive>();
-
 // Where the SvelteKit host runs. Deploying without setting this is the classic
 // "works locally, blocked in the browser" failure, so it's configuration.
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
