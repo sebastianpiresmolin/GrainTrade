@@ -241,38 +241,90 @@ public sealed class AccountGrain : Grain, IAccountGrain
         return orders.SelectMany(o => o).OrderBy(o => o.PlacedAt).ToArray();
     }
 
-    // Pulls fills from every book this account rests orders on and applies them.
-    // The book hands them over once, so a fill can't be settled twice — and
-    // SettledFills guards against a retry after a mid-settle failure.
+    // Pulls fills from every book this account rests orders on, applies them,
+    // then reconciles reservations to whatever is actually still resting. Fills
+    // are handed over once (SettledFills also guards a re-claim), so nothing
+    // double-applies.
     private async Task SettleInternal()
     {
         var books = _state.State.ActiveBooks.ToArray();
+
+        // No resting orders anywhere ⇒ nothing can be reserved. Handles an
+        // account whose orders all expired on the book while it sat idle.
         if (books.Length == 0)
         {
+            if (ReconcileReservations([]))
+            {
+                await _state.WriteStateAsync();
+            }
             return;
         }
 
         var claimed = await Task.WhenAll(books.Select(s =>
             GrainFactory.GetGrain<IOrderBookGrain>(s).ClaimFills(this.GetPrimaryKey())));
+        var openPerBook = await Task.WhenAll(books.Select(s =>
+            GrainFactory.GetGrain<IOrderBookGrain>(s).GetOpenOrders(this.GetPrimaryKey())));
 
         var fills = claimed.SelectMany(f => f)
             .Where(f => _state.State.SettledFills.Add(f.FillId))
             .OrderBy(f => f.ExecutedAt)
             .ToArray();
 
-        if (fills.Length == 0)
-        {
-            await PruneEmptyBooks(books);
-            return;
-        }
-
         foreach (var fill in fills)
         {
             ApplyFill(fill);
         }
 
-        await PruneEmptyBooks(books);
-        await _state.WriteStateAsync();
+        var changed = fills.Length > 0;
+        changed |= ReconcileReservations(openPerBook.SelectMany(o => o));
+
+        // Drop books nothing rests on any more, so Settle() stops polling them.
+        for (var i = 0; i < books.Length; i++)
+        {
+            if (openPerBook[i].Count == 0)
+            {
+                changed |= _state.State.ActiveBooks.Remove(books[i]);
+            }
+        }
+
+        if (changed)
+        {
+            await _state.WriteStateAsync();
+        }
+    }
+
+    // Reservations always equal what's committed to still-open orders. Recomputing
+    // them (rather than decrementing per fill) is what releases cash left over when
+    // a buy fills below its limit, and cash/shares tied to an order that expired on
+    // the book — neither of which the account is told about directly. Returns
+    // whether anything changed.
+    private bool ReconcileReservations(IEnumerable<RestingOrder> open)
+    {
+        var openList = open.ToList();
+
+        var reservedCash = openList
+            .Where(o => o.Side == OrderSide.Buy)
+            .Sum(o => o.Remaining * o.LimitPrice);
+
+        var reservedShares = openList
+            .Where(o => o.Side == OrderSide.Sell)
+            .GroupBy(o => o.Symbol)
+            .ToDictionary(g => g.Key, g => g.Sum(o => o.Remaining));
+
+        var changed = _state.State.ReservedCash != reservedCash;
+        _state.State.ReservedCash = reservedCash;
+
+        foreach (var (symbol, position) in _state.State.Positions)
+        {
+            var shares = reservedShares.GetValueOrDefault(symbol);
+            if (position.Reserved != shares)
+            {
+                position.Reserved = shares;
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     private void ApplyFill(Fill fill)
@@ -281,9 +333,8 @@ public sealed class AccountGrain : Grain, IAccountGrain
 
         if (fill.Side == OrderSide.Buy)
         {
-            // Cash was reserved at the limit price; the fill may be cheaper, so
-            // release the reservation and charge what it actually cost.
-            _state.State.ReservedCash = Math.Max(0, _state.State.ReservedCash - fill.Notional);
+            // Charge what it actually cost; the reservation is squared up
+            // afterwards by ReconcileReservations.
             _state.State.CashBalance -= fill.Notional;
 
             position ??= _state.State.Positions[fill.Symbol] = new PositionState();
@@ -294,8 +345,7 @@ public sealed class AccountGrain : Grain, IAccountGrain
         {
             _state.State.CashBalance += fill.Notional;
 
-            position!.Reserved = Math.Max(0, position.Reserved - fill.Quantity);
-            position.CostBasis -= position.CostBasis * fill.Quantity / position.Quantity;
+            position!.CostBasis -= position.CostBasis * fill.Quantity / position.Quantity;
             position.Quantity -= fill.Quantity;
 
             if (position.Quantity == 0)
@@ -318,20 +368,6 @@ public sealed class AccountGrain : Grain, IAccountGrain
         if (_state.State.Trades.Count > MaxTrades)
         {
             _state.State.Trades.RemoveRange(MaxTrades, _state.State.Trades.Count - MaxTrades);
-        }
-    }
-
-    // Expiry happens on the book, so an account can hold a reservation for an
-    // order that no longer exists. Drop books where nothing rests any more.
-    private async Task PruneEmptyBooks(string[] books)
-    {
-        foreach (var symbol in books)
-        {
-            var open = await GrainFactory.GetGrain<IOrderBookGrain>(symbol).GetOpenOrders(this.GetPrimaryKey());
-            if (open.Count == 0)
-            {
-                _state.State.ActiveBooks.Remove(symbol);
-            }
         }
     }
 

@@ -3,6 +3,7 @@
 	import type { PageProps } from './$types';
 	import type { AccountSummary, PricePoint } from '$lib/types';
 	import { market } from '$lib/market.svelte';
+	import OrderBook from '$lib/OrderBook.svelte';
 
 	let { data, form }: PageProps = $props();
 
@@ -88,8 +89,12 @@
 			<p class="error" role="alert">{form.error}</p>
 		{:else if form?.order}
 			<p class="filled" role="status">
-				{form.order.trade.side === 'Buy' ? 'Bought' : 'Sold'}
-				{form.order.trade.quantity} at {money(form.order.trade.price)}
+				{#if form.order.trade.quantity > 0}
+					{form.order.trade.side === 'Buy' ? 'Bought' : 'Sold'}
+					{form.order.trade.quantity} at {money(form.order.trade.price)}
+				{:else}
+					Order resting on the book.
+				{/if}
 			</p>
 		{/if}
 
@@ -98,7 +103,24 @@
 			<button type="submit" formaction="?/buy" class="buy">Buy</button>
 			<button type="submit" formaction="?/sell" class="sell" disabled={!position}>Sell</button>
 		</form>
+
+		<form method="POST" use:enhance class="limit">
+			<input name="quantity" type="number" min="1" step="1" value="1" aria-label="Limit quantity" />
+			<input
+				name="limitPrice"
+				type="number"
+				min="0.01"
+				step="0.01"
+				placeholder="Limit"
+				aria-label="Limit price"
+			/>
+			<button type="submit" formaction="?/limitBuy" class="buy">Bid</button>
+			<button type="submit" formaction="?/limitSell" class="sell" disabled={!position}>Ask</button>
+		</form>
 	</div>
+
+	<h2>Order book</h2>
+	<OrderBook depth={data.depth} />
 
 	{#if data.trades.length}
 		<h2>Recent trades</h2>
@@ -175,6 +197,9 @@
 	form {
 		display: flex;
 		gap: 0.5rem;
+	}
+	.limit {
+		margin-top: 0.5rem;
 	}
 	input {
 		flex: 1;

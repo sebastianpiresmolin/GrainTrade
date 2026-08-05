@@ -36,3 +36,14 @@ export interface PricePoint {
 	price: number;
 	asOf: string;
 }
+
+export interface DepthLevel {
+	price: number;
+	quantity: number;
+}
+
+export interface BookDepth {
+	// Best first: bids descending, asks ascending.
+	bids: DepthLevel[];
+	asks: DepthLevel[];
+}
