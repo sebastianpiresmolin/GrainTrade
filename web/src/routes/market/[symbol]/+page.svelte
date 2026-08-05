@@ -125,7 +125,7 @@
 
 <section class="card">
 	<h2>Order book</h2>
-	<OrderBook {depth} />
+	<OrderBook {depth} orders={data.orders} />
 </section>
 
 {#if trades.length}

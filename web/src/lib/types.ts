@@ -52,3 +52,13 @@ export interface BookDepth {
 export interface DepthUpdate extends BookDepth {
 	symbol: string;
 }
+
+// A limit order resting on the book (the account's own pending orders).
+export interface RestingOrder {
+	orderId: string;
+	symbol: string;
+	side: OrderSide;
+	limitPrice: number;
+	quantity: number;
+	remaining: number;
+}

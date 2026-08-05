@@ -5,24 +5,33 @@ import type {
 	BookDepth,
 	OrderSide,
 	PricePoint,
+	RestingOrder,
 	TickerQuote,
 	Trade
 } from '$lib/types';
 import { ACCOUNT_ID, API_BASE } from '$lib/server/api';
 
 export const load: PageServerLoad = async ({ fetch, params }) => {
-	const [quoteRes, historyRes, tradesRes, depthRes, accountRes] = await Promise.all([
+	const [quoteRes, historyRes, tradesRes, depthRes, accountRes, ordersRes] = await Promise.all([
 		fetch(`${API_BASE}/market/${params.symbol}`),
 		fetch(`${API_BASE}/market/${params.symbol}/history`),
 		fetch(`${API_BASE}/market/${params.symbol}/trades`),
 		fetch(`${API_BASE}/market/${params.symbol}/depth`),
-		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`)
+		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`),
+		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}/orders`)
 	]);
 
 	if (quoteRes.status === 404) {
 		error(404, `Unknown symbol "${params.symbol}".`);
 	}
-	if (!quoteRes.ok || !historyRes.ok || !tradesRes.ok || !depthRes.ok || !accountRes.ok) {
+	if (
+		!quoteRes.ok ||
+		!historyRes.ok ||
+		!tradesRes.ok ||
+		!depthRes.ok ||
+		!accountRes.ok ||
+		!ordersRes.ok
+	) {
 		error(502, 'Failed to load ticker.');
 	}
 
@@ -31,7 +40,12 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 	const trades: Trade[] = await tradesRes.json();
 	const depth: BookDepth = await depthRes.json();
 	const account: AccountSummary = await accountRes.json();
-	return { quote, history, trades, depth, account };
+
+	// The account's own resting orders for this symbol, so the book can flag them.
+	const allOrders: RestingOrder[] = await ordersRes.json();
+	const orders = allOrders.filter((o) => o.symbol === params.symbol);
+
+	return { quote, history, trades, depth, account, orders };
 };
 
 // Client-side checks are a courtesy; the grain owns funds and share counts.

@@ -1,14 +1,15 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import type { AccountSummary, TickerQuote } from '$lib/types';
+import type { AccountSummary, RestingOrder, TickerQuote } from '$lib/types';
 import { API_BASE, ACCOUNT_ID } from '$lib/server/api';
 
-// The overview: account + market in one load so the dashboard renders whole on
-// first paint. The live stream keeps prices and P&L moving after that.
+// The overview: account + market + pending orders in one load so the dashboard
+// renders whole on first paint. The live stream keeps prices and P&L moving after.
 export const load: PageServerLoad = async ({ fetch }) => {
-	const [accountRes, marketRes] = await Promise.all([
+	const [accountRes, marketRes, ordersRes] = await Promise.all([
 		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}`),
-		fetch(`${API_BASE}/market`)
+		fetch(`${API_BASE}/market`),
+		fetch(`${API_BASE}/accounts/${ACCOUNT_ID}/orders`)
 	]);
 	if (!accountRes.ok) {
 		throw new Error(`Failed to load account (${accountRes.status}).`);
@@ -16,9 +17,13 @@ export const load: PageServerLoad = async ({ fetch }) => {
 	if (!marketRes.ok) {
 		throw new Error(`Failed to load market (${marketRes.status}).`);
 	}
+	if (!ordersRes.ok) {
+		throw new Error(`Failed to load orders (${ordersRes.status}).`);
+	}
 	const account: AccountSummary = await accountRes.json();
 	const quotes: TickerQuote[] = await marketRes.json();
-	return { account, quotes };
+	const orders: RestingOrder[] = await ordersRes.json();
+	return { account, quotes, orders };
 };
 
 // Client-side validation is a courtesy; the grain owns the real invariant.
@@ -50,5 +55,20 @@ async function mutate(
 
 export const actions: Actions = {
 	deposit: async ({ request, fetch }) => mutate(fetch, 'deposit', await request.formData()),
-	withdraw: async ({ request, fetch }) => mutate(fetch, 'withdraw', await request.formData())
+	withdraw: async ({ request, fetch }) => mutate(fetch, 'withdraw', await request.formData()),
+
+	cancel: async ({ request, fetch }) => {
+		const form = await request.formData();
+		const symbol = form.get('symbol');
+		const orderId = form.get('orderId');
+		const res = await fetch(
+			`${API_BASE}/accounts/${ACCOUNT_ID}/orders/${symbol}/${orderId}`,
+			{ method: 'DELETE' }
+		);
+		// 404 means it already filled or expired — nothing to do, still refresh.
+		if (!res.ok && res.status !== 404) {
+			return fail(res.status, { error: 'Could not cancel the order.' });
+		}
+		return { cancelled: true };
+	}
 };
