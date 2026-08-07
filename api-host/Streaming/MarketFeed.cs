@@ -4,37 +4,71 @@ using GrainTrade.Abstractions;
 
 namespace GrainTrade.ApiHost.Streaming;
 
-// Bridges Orleans streams to connected browsers. Subscribes to each ticker
-// stream once for the whole process and fans out to every SSE client, so N
-// browsers cost one set of Orleans subscriptions rather than N.
+// One SSE payload. Event is the SSE event name the browser listens for; Payload
+// is serialised as its data.
+public readonly record struct MarketEvent(string Event, object Payload);
+
+// BookDepth carries no symbol, but the browser needs to know which book changed,
+// so the host tags it on the way out.
+public sealed record DepthUpdate(string Symbol, IReadOnlyList<DepthLevel> Bids, IReadOnlyList<DepthLevel> Asks);
+
+// The account's live state, pushed when a background fill settles so holdings,
+// cash and pending orders update without a reload.
+public sealed record AccountUpdate(AccountSummary Summary, IReadOnlyList<RestingOrder> Orders);
+
+// Bridges Orleans streams to connected browsers. Subscribes to each grain stream
+// once for the whole process and fans out to every SSE client, so N browsers cost
+// one set of Orleans subscriptions rather than N.
 //
 // Concurrent collections are correct here — unlike inside a grain, this is
 // ordinary shared state in a multi-threaded host with no turn-based guarantee.
 public sealed class MarketFeed
 {
-    private readonly ConcurrentDictionary<string, TickerQuote> _latest = new();
-    private readonly ConcurrentDictionary<Guid, Channel<TickerQuote>> _subscribers = new();
+    // Latest state per symbol, replayed to a client the moment it connects so a
+    // new tab isn't blank until the next change. Trades are events, not state,
+    // so they aren't cached — the page loads its initial tape over REST.
+    private readonly ConcurrentDictionary<string, TickerQuote> _quotes = new();
+    private readonly ConcurrentDictionary<string, DepthUpdate> _depth = new();
+    private readonly ConcurrentDictionary<Guid, Channel<MarketEvent>> _subscribers = new();
 
-    public IReadOnlyCollection<TickerQuote> Latest => _latest.Values.ToArray();
-
-    // Called by the stream observer when a grain publishes a tick.
-    public void Publish(TickerQuote quote)
+    public IReadOnlyCollection<MarketEvent> Snapshot()
     {
-        _latest[quote.Symbol] = quote;
+        var events = new List<MarketEvent>(_quotes.Count + _depth.Count);
+        events.AddRange(_quotes.Values.Select(q => new MarketEvent("quote", q)));
+        events.AddRange(_depth.Values.Select(d => new MarketEvent("depth", d)));
+        return events;
+    }
 
+    public void PublishQuote(TickerQuote quote)
+    {
+        _quotes[quote.Symbol] = quote;
+        Fan(new MarketEvent("quote", quote));
+    }
+
+    public void PublishDepth(string symbol, BookDepth depth)
+    {
+        var update = new DepthUpdate(symbol, depth.Bids, depth.Asks);
+        _depth[symbol] = update;
+        Fan(new MarketEvent("depth", update));
+    }
+
+    public void PublishTrade(Trade trade) => Fan(new MarketEvent("trade", trade));
+
+    private void Fan(MarketEvent ev)
+    {
         foreach (var subscriber in _subscribers.Values)
         {
             // Bounded + DropOldest: a slow browser falls behind rather than
-            // growing an unbounded buffer. Stale prices are worthless anyway.
-            subscriber.Writer.TryWrite(quote);
+            // growing an unbounded buffer.
+            subscriber.Writer.TryWrite(ev);
         }
     }
 
-    public (Guid Id, ChannelReader<TickerQuote> Reader) Subscribe()
+    public (Guid Id, ChannelReader<MarketEvent> Reader) Subscribe()
     {
         var id = Guid.NewGuid();
-        var channel = Channel.CreateBounded<TickerQuote>(
-            new BoundedChannelOptions(64) { FullMode = BoundedChannelFullMode.DropOldest });
+        var channel = Channel.CreateBounded<MarketEvent>(
+            new BoundedChannelOptions(256) { FullMode = BoundedChannelFullMode.DropOldest });
 
         _subscribers[id] = channel;
         return (id, channel.Reader);

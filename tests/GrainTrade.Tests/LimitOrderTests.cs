@@ -303,4 +303,41 @@ public sealed class LimitOrderTests(GrainClusterFixture fixture)
         Assert.Equal(1, results.Count(r => r.Trade.Quantity == 10));
         Assert.Equal(5, results.Count(r => r.Trade.Quantity == 0));
     }
+
+    // A buy that fills below its limit reserved more than it spent; the gap must
+    // not stay reserved once the order is done.
+    [Fact]
+    public async Task Price_improved_buy_releases_the_residual_reservation()
+    {
+        var seller = await Holding("IMPROVE1", 10);
+        var buyer = await Funded(10_000m);
+
+        await seller.PlaceLimitOrder("IMPROVE1", OrderSide.Sell, 10, 50m);
+        var result = await buyer.PlaceLimitOrder("IMPROVE1", OrderSide.Buy, 10, 55m);
+
+        Assert.Equal(10, result.Trade.Quantity);
+        Assert.Equal(50m, result.Trade.Price);
+        Assert.Equal(0m, result.Account.ReservedCash);
+        Assert.Equal(9_500m, result.Account.CashBalance);
+        Assert.Equal(9_500m, result.Account.AvailableCash);
+    }
+
+    // Expiry drops a resting order on the book without telling the account (the
+    // pull model only carries fills). Cancelling straight on the book reproduces
+    // that gap deterministically, without waiting for the expiry reminder.
+    [Fact]
+    public async Task Reservation_is_released_when_an_order_leaves_the_book_unfilled()
+    {
+        var account = await Funded(10_000m);
+        await account.PlaceLimitOrder("EXPIRE1", OrderSide.Buy, 10, 50m);
+
+        var order = (await account.GetOpenOrders()).Single();
+        await fixture.Grains.GetGrain<IOrderBookGrain>("EXPIRE1")
+            .Cancel(order.OrderId, account.GetPrimaryKey());
+
+        var summary = await account.Settle();
+
+        Assert.Equal(0m, summary.ReservedCash);
+        Assert.Equal(10_000m, summary.AvailableCash);
+    }
 }

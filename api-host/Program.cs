@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Text.Json.Serialization;
 using GrainTrade.Abstractions;
 using Npgsql;
+using GrainTrade.ApiHost;
 using GrainTrade.ApiHost.Endpoints;
 using GrainTrade.ApiHost.Streaming;
 
@@ -43,6 +44,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddSingleton<MarketFeed>();
 builder.Services.AddHostedService<MarketFeedSubscriber>();
+
+// Synthetic liquidity so limit orders have a counterparty and the book shows depth.
+builder.Services.AddHostedService<MarketMaker>();
 
 // Where the SvelteKit host runs. Deploying without setting this is the classic
 // "works locally, blocked in the browser" failure, so it's configuration.

@@ -107,8 +107,10 @@ try {
     Write-Host 'GrainTrade' -ForegroundColor Green
 
     # 1. Silo — must be up before the client connects.
+    # Relative project paths (resolved against WorkingDirectory) avoid the space
+    # in an absolute home-dir path breaking the unquoted Start-Process arg list.
     $silo = Start-Logged -Name 'silo' -FilePath 'dotnet' `
-        -Arguments @('run', '--project', (Join-Path $root 'silo/GrainTrade.Silo')) `
+        -Arguments @('run', '--project', 'silo/GrainTrade.Silo') `
         -WorkingDirectory $root
     $procs += $silo
 
@@ -119,7 +121,7 @@ try {
 
     # 2. API host — Orleans client + REST.
     $api = Start-Logged -Name 'api' -FilePath 'dotnet' `
-        -Arguments @('run', '--project', (Join-Path $root 'api-host'), '--urls', $ApiUrl) `
+        -Arguments @('run', '--project', 'api-host', '--urls', $ApiUrl) `
         -WorkingDirectory $root
     $procs += $api
 

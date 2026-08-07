@@ -36,3 +36,35 @@ export interface PricePoint {
 	price: number;
 	asOf: string;
 }
+
+export interface DepthLevel {
+	price: number;
+	quantity: number;
+}
+
+export interface BookDepth {
+	// Best first: bids descending, asks ascending.
+	bids: DepthLevel[];
+	asks: DepthLevel[];
+}
+
+// A depth event off the stream: BookDepth tagged with which book it's for.
+export interface DepthUpdate extends BookDepth {
+	symbol: string;
+}
+
+// A limit order resting on the book (the account's own pending orders).
+export interface RestingOrder {
+	orderId: string;
+	symbol: string;
+	side: OrderSide;
+	limitPrice: number;
+	quantity: number;
+	remaining: number;
+}
+
+// Live account push: settled summary + current open orders.
+export interface AccountUpdate {
+	summary: AccountSummary;
+	orders: RestingOrder[];
+}
