@@ -51,6 +51,11 @@ builder.UseOrleans(silo =>
             options.Invariant = "Npgsql";
             options.ConnectionString = postgres;
         });
+        silo.AddAdoNetGrainStorage("watchlists", options =>
+        {
+            options.Invariant = "Npgsql";
+            options.ConnectionString = postgres;
+        });
     }
     else
     {
@@ -58,6 +63,7 @@ builder.UseOrleans(silo =>
         silo.AddMemoryGrainStorage("accounts");
         silo.AddMemoryGrainStorage("orderbooks");
         silo.UseInMemoryReminderService();
+        silo.AddMemoryGrainStorage("watchlists");
     }
 
     // Prices stay in memory whichever mode we're in: a simulated price is
